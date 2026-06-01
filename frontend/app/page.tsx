@@ -1,106 +1,87 @@
-'use client';
+"use client"
 
-import { useState } from 'react';
+import { useEffect, useState } from "react"
+import axios from "axios"
 
-export default function Home() {
-  const [placeQuery, setPlaceQuery] = useState('sushi in Tokyo ');
-  const [placeResult, setPlaceResult] = useState<any>(null);
+import {
+    GoogleMap,
+    Polyline,
+    useJsApiLoader
+} from "@react-google-maps/api"
 
-  const [city, setCity] = useState('Tokyo');
-  const [geoResult, setGeoResult] = useState<any>(null);
+import { decode } from "@googlemaps/polyline-codec"
 
-  const [origin, setOrigin] = useState('Sensoji');
-  const [destination, setDestination] = useState('Tokyo Tower');
-  const [directionResult, setDirectionResult] = useState<any>(null);
+export default function MapPage() {
 
-  const searchPlaces = async () => {
-    const res = await fetch(
-      `http://localhost:8000/places?query=${placeQuery}`
-    );
+    const [polyline, setPolyline] = useState("")
+    const [path, setPath] = useState<any[]>([])
+    const [map, setMap] = useState<google.maps.Map | null>(null)
 
-    const data = await res.json();
-    setPlaceResult(data);
-  };
+    // 1. Google Maps JS API 로드 (중복 방지 핵심)
+    const { isLoaded } = useJsApiLoader({
+        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY!
+    })
 
-  const searchGeo = async () => {
-    const res = await fetch(
-      `http://localhost:8000/geocode?city=${city}`
-    );
+    // 2. 백엔드에서 route 가져오기
+    useEffect(() => {
+        axios
+            .get("http://127.0.0.1:8000/route-test")
+            .then((res) => {
 
-    const data = await res.json();
-    setGeoResult(data);
-  };
+                setPolyline(res.data.polyline)
 
-  const searchDirection = async () => {
-    const res = await fetch(
-      `http://localhost:8000/directions?origin=${origin}&destination=${destination}`
-    );
+                const decoded = decode(res.data.polyline)
 
-    const data = await res.json();
-    setDirectionResult(data);
-  };
+                const formattedPath = decoded.map(([lat, lng]) => ({
+                    lat,
+                    lng
+                }))
 
-  return (
-    <main style={{ padding: '40px' }}>
-      <h1>Google API Playground</h1>
+                setPath(formattedPath)
+            })
+            .catch((err) => {
+                console.error(err)
+            })
+    }, [])
 
-      <hr />
+    // 3. 경로가 생기면 지도 자동 맞춤
+    useEffect(() => {
+        if (!map || path.length === 0) return
 
-      <h2>Places API</h2>
+        const bounds = new google.maps.LatLngBounds()
 
-      <input
-        value={placeQuery}
-        onChange={(e) => setPlaceQuery(e.target.value)}
-      />
+        path.forEach((p) => bounds.extend(p))
 
-      <button onClick={searchPlaces}>
-        검색
-      </button>
+        map.fitBounds(bounds)
+    }, [map, path])
 
-      <pre>
-        {JSON.stringify(placeResult, null, 2)}
-      </pre>
+    // 4. 로딩 처리
+    if (!isLoaded) {
+        return <div>Loading Map...</div>
+    }
 
-      <hr />
-
-      <h2>Geocoding API</h2>
-
-      <input
-        value={city}
-        onChange={(e) => setCity(e.target.value)}
-      />
-
-      <button onClick={searchGeo}>
-        검색
-      </button>
-
-      <pre>
-        {JSON.stringify(geoResult, null, 2)}
-      </pre>
-
-      <hr />
-
-      <h2>Directions API</h2>
-
-      <div>
-        <input
-          value={origin}
-          onChange={(e) => setOrigin(e.target.value)}
-        />
-
-        <input
-          value={destination}
-          onChange={(e) => setDestination(e.target.value)}
-        />
-
-        <button onClick={searchDirection}>
-          검색
-        </button>
-      </div>
-
-      <pre>
-        {JSON.stringify(directionResult, null, 2)}
-      </pre>
-    </main>
-  );
+    return (
+        <GoogleMap
+            onLoad={(mapInstance) => setMap(mapInstance)}
+            mapContainerStyle={{
+                width: "100%",
+                height: "100vh"
+            }}
+            center={{
+                lat: 35.6764,
+                lng: 139.6500
+            }}
+            zoom={12}
+        >
+            {path.length > 0 && (
+                <Polyline
+                    path={path}
+                    options={{
+                        strokeColor: "#4285F4",
+                        strokeWeight: 6
+                    }}
+                />
+            )}
+        </GoogleMap>
+    )
 }

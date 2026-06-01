@@ -4,7 +4,8 @@ __pycache__/
 *.pyc
 
 # Environment
-.env
+**/.env
+**/.env.local
 
 # IDE
 .idea/
@@ -16,3 +17,7 @@ frontend/node_modules/
 
 # Logs
 *.log
+
+# Node
+**/node_modules/
+**/.next/
