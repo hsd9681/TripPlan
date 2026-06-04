@@ -1,87 +1,117 @@
-"use client"
+// app/page.tsx
 
-import { useEffect, useState } from "react"
-import axios from "axios"
+import Link from "next/link"
 
-import {
-    GoogleMap,
-    Polyline,
-    useJsApiLoader
-} from "@react-google-maps/api"
-
-import { decode } from "@googlemaps/polyline-codec"
-
-export default function MapPage() {
-
-    const [polyline, setPolyline] = useState("")
-    const [path, setPath] = useState<any[]>([])
-    const [map, setMap] = useState<google.maps.Map | null>(null)
-
-    // 1. Google Maps JS API 로드 (중복 방지 핵심)
-    const { isLoaded } = useJsApiLoader({
-        googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY!
-    })
-
-    // 2. 백엔드에서 route 가져오기
-    useEffect(() => {
-        axios
-            .get("http://127.0.0.1:8000/route-test")
-            .then((res) => {
-
-                setPolyline(res.data.polyline)
-
-                const decoded = decode(res.data.polyline)
-
-                const formattedPath = decoded.map(([lat, lng]) => ({
-                    lat,
-                    lng
-                }))
-
-                setPath(formattedPath)
-            })
-            .catch((err) => {
-                console.error(err)
-            })
-    }, [])
-
-    // 3. 경로가 생기면 지도 자동 맞춤
-    useEffect(() => {
-        if (!map || path.length === 0) return
-
-        const bounds = new google.maps.LatLngBounds()
-
-        path.forEach((p) => bounds.extend(p))
-
-        map.fitBounds(bounds)
-    }, [map, path])
-
-    // 4. 로딩 처리
-    if (!isLoaded) {
-        return <div>Loading Map...</div>
-    }
-
+export default function HomePage() {
     return (
-        <GoogleMap
-            onLoad={(mapInstance) => setMap(mapInstance)}
-            mapContainerStyle={{
-                width: "100%",
-                height: "100vh"
-            }}
-            center={{
-                lat: 35.6764,
-                lng: 139.6500
-            }}
-            zoom={12}
-        >
-            {path.length > 0 && (
-                <Polyline
-                    path={path}
-                    options={{
-                        strokeColor: "#4285F4",
-                        strokeWeight: 6
-                    }}
-                />
-            )}
-        </GoogleMap>
+        <main className="p-10">
+
+            <h1 className="text-4xl font-bold mb-2">
+                TripPlan AI
+            </h1>
+
+            <p className="text-gray-500 mb-10">
+                여행 일정 생성 기능 테스트
+            </p>
+
+            {/* 현재 여행 */}
+            <section className="mb-10">
+                <div className="border rounded-xl p-6">
+
+                    <h2 className="text-xl font-bold mb-2">
+                        다가오는 여행
+                    </h2>
+
+                    <p>도쿄 4박 5일</p>
+
+                    <p className="text-gray-500">
+                        2025.07.20 ~ 2025.07.24
+                    </p>
+
+                </div>
+            </section>
+
+            {/* 기능 이동 */}
+            <section>
+
+                <h2 className="text-2xl font-bold mb-6">
+                    기능 테스트
+                </h2>
+
+                <div className="grid grid-cols-2 gap-4">
+
+                    <Link
+                        href="/trip/create"
+                        className="border rounded-xl p-6 hover:bg-gray-100"
+                    >
+                        <div className="text-3xl mb-2">
+                            ✈️
+                        </div>
+
+                        <div className="font-bold">
+                            여행 생성
+                        </div>
+
+                        <div className="text-sm text-gray-500">
+                            국가 / 기간 입력
+                        </div>
+                    </Link>
+
+                    <Link
+                        href="/trip/result"
+                        className="border rounded-xl p-6 hover:bg-gray-100"
+                    >
+                        <div className="text-3xl mb-2">
+                            🍣
+                        </div>
+
+                        <div className="font-bold">
+                            일정 결과
+                        </div>
+
+                        <div className="text-sm text-gray-500">
+                            일정 결과
+                        </div>
+                    </Link>
+
+                    <Link
+                        href="/place-search"
+                        className="border rounded-xl p-6 hover:bg-gray-100"
+                    >
+                        <div className="text-3xl mb-2">
+                            ⭐
+                        </div>
+
+                        <div className="font-bold">
+                            추천 장소
+                        </div>
+
+                        <div className="text-sm text-gray-500">
+                            맛집 추천 리스트
+                        </div>
+                    </Link>
+
+                    <Link
+                        href="/map-test"
+                        className="border rounded-xl p-6 hover:bg-gray-100"
+                    >
+                        <div className="text-3xl mb-2">
+                            🗺️
+                        </div>
+
+                        <div className="font-bold">
+                            지도 테스트
+                        </div>
+
+                        <div className="text-sm text-gray-500">
+                            Google Maps + Route
+                        </div>
+                    </Link>
+
+                </div>
+
+            </section>
+
+        </main>
     )
 }
