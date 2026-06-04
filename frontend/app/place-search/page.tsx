@@ -82,6 +82,49 @@ export default function PlaceSearchPage() {
                             <p>
                                 ⭐ {place.rating}
                             </p>
+                            <div className="flex gap-2 mt-3">
+
+                                {[1, 2, 3].map((day) => (
+
+                                    <button
+                                        key={day}
+                                        onClick={() => {
+
+                                            const saved =
+                                                JSON.parse(
+                                                    localStorage.getItem("schedule") || "{}"
+                                                )
+
+                                            if (!saved[day]) {
+                                                saved[day] = []
+                                            }
+
+                                            saved[day].push(place.name)
+
+                                            localStorage.setItem(
+                                                "schedule",
+                                                JSON.stringify(saved)
+                                            )
+
+                                            alert(
+                                                `${place.name} → DAY${day} 추가 완료`
+                                            )
+
+                                        }}
+                                        className="
+                bg-green-500
+                text-white
+                px-3
+                py-1
+                rounded
+            "
+                                    >
+                                        DAY{day} 추가
+                                    </button>
+
+                                ))}
+
+                            </div>
 
                         </div>
 

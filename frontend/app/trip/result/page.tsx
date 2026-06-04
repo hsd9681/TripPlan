@@ -7,33 +7,29 @@ export default function TripResultPage() {
     const [tripInfo, setTripInfo] = useState<any>(null)
     const [isOpen, setIsOpen] = useState(false)
     const [openDay, setOpenDay] = useState<number | null>(null)
-    const mockSchedule = {
-        1: [
-            "도쿄역",
-            "스시 다이",
-            "센소지"
-        ],
-        2: [
-            "아사쿠사",
-            "우에노 공원",
-            "시부야"
-        ],
-        3: [
-            "도쿄타워",
-            "긴자",
-            "롯폰기"
-        ]
-    }
+    const [schedule, setSchedule] = useState<any>({})
 
     useEffect(() => {
 
-        const data = localStorage.getItem("tripInfo")
+    const tripData =
+        localStorage.getItem("tripInfo")
 
-        if (data) {
-            setTripInfo(JSON.parse(data))
-        }
+    if (tripData) {
+        setTripInfo(
+            JSON.parse(tripData)
+        )
+    }
 
-    }, [])
+    const scheduleData =
+        localStorage.getItem("schedule")
+
+    if (scheduleData) {
+        setSchedule(
+            JSON.parse(scheduleData)
+        )
+    }
+
+}, [])
 
     if (!tripInfo) {
         return (
@@ -148,11 +144,7 @@ export default function TripResultPage() {
                                                 <div className="p-4 bg-white">
 
                                                     {
-                                                        (
-                                                            mockSchedule[
-                                                            index + 1 as keyof typeof mockSchedule
-                                                            ] || []
-                                                        ).map((place) => (
+                                                        (schedule[index + 1] || []).map((place: string) => (
 
                                                             <div
                                                                 key={place}
