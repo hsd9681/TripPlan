@@ -1,0 +1,239 @@
+"use client"
+
+import Link from "next/link"
+import {
+    FcGoogle
+} from "react-icons/fc"
+
+import {
+    FaApple
+} from "react-icons/fa"
+
+import {
+    SiNaver,
+    SiKakaotalk
+} from "react-icons/si"
+
+export default function LoginPage() {
+
+    return (
+
+        <main
+            className="
+                min-h-screen
+                bg-gray-100
+                flex
+                items-center
+                justify-center
+                px-4
+            "
+        >
+
+            <div
+                className="
+                    bg-white
+                    w-full
+                    max-w-md
+                    rounded-3xl
+                    shadow-lg
+                    p-8
+                "
+            >
+
+                <div className="text-center mb-8">
+
+                    <div className="text-5xl mb-4">
+                        💙
+                    </div>
+
+                    <h1
+                        className="
+                            text-3xl
+                            font-bold
+                            text-blue-600
+                        "
+                    >
+                        TripPlan AI
+                    </h1>
+
+                </div>
+
+                <h2
+                    className="
+                        text-xl
+                        font-semibold
+                        mb-6
+                    "
+                >
+                    로그인
+                </h2>
+
+                <div className="flex flex-col gap-4">
+
+                    <input
+                        type="email"
+                        placeholder="이메일"
+                        className="
+                            border
+                            rounded-xl
+                            p-3
+                        "
+                    />
+
+                    <input
+                        type="password"
+                        placeholder="비밀번호"
+                        className="
+                            border
+                            rounded-xl
+                            p-3
+                        "
+                    />
+
+                    <label
+                        className="
+                            flex
+                            items-center
+                            gap-2
+                            text-sm
+                            text-gray-600
+                        "
+                    >
+                        <input type="checkbox" />
+                        로그인 상태 유지
+                    </label>
+
+                    <button
+                        className="
+                            bg-blue-600
+                            text-white
+                            p-3
+                            rounded-xl
+                            font-semibold
+                        "
+                    >
+                        <Link
+                            href="/">
+                            로그인
+                        </Link>
+
+                    </button>
+
+                </div>
+
+                <div className="relative my-8">
+
+                    <div className="border-t" />
+
+                    <span
+                        className="
+                            absolute
+                            left-1/2
+                            -translate-x-1/2
+                            -top-3
+                            bg-white
+                            px-4
+                            text-sm
+                            text-gray-500
+                        "
+                    >
+                        소셜 계정으로 로그인
+                    </span>
+
+                </div>
+
+                <div
+                    className="
+                        flex
+                        justify-center
+                        gap-4
+                    "
+                >
+
+                    <button
+                        className="
+                            w-12
+                            h-12
+                            rounded-full
+                            border
+                            flex
+                            items-center
+                            justify-center
+                        "
+                    >
+                        <FcGoogle size={24} />
+                    </button>
+
+                    <button
+                        className="
+                            w-12
+                            h-12
+                            rounded-full
+                            border
+                            flex
+                            items-center
+                            justify-center
+                        "
+                    >
+                        <FaApple size={24} />
+                    </button>
+
+                    <button
+                        className="
+                            w-12
+                            h-12
+                            rounded-full
+                            border
+                            flex
+                            items-center
+                            justify-center
+                        "
+                    >
+                        <SiNaver size={24} />
+                    </button>
+
+                    <button
+                        className="
+                            w-12
+                            h-12
+                            rounded-full
+                            border
+                            flex
+                            items-center
+                            justify-center
+                        "
+                    >
+                        <SiKakaotalk size={24} />
+                    </button>
+
+                </div>
+
+                <div
+                    className="
+                        text-center
+                        mt-8
+                        text-sm
+                    "
+                >
+
+                    계정이 없으신가요?
+
+                    <Link
+                        href="/signup"
+                        className="
+                            ml-2
+                            text-blue-600
+                            font-semibold
+                        "
+                    >
+                        회원가입
+                    </Link>
+
+                </div>
+
+            </div>
+
+        </main>
+
+    )
+}

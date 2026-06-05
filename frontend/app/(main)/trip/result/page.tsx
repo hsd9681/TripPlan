@@ -9,27 +9,51 @@ export default function TripResultPage() {
     const [openDay, setOpenDay] = useState<number | null>(null)
     const [schedule, setSchedule] = useState<any>({})
 
+    const removePlace = (
+        day: number,
+        placeName: string
+    ) => {
+
+        const updatedSchedule = {
+            ...schedule
+        }
+
+        updatedSchedule[day] =
+            updatedSchedule[day].filter(
+                (item: string) =>
+                    item !== placeName
+            )
+
+        localStorage.setItem(
+            "schedule",
+            JSON.stringify(updatedSchedule)
+        )
+
+        setSchedule(updatedSchedule)
+    }
+
+
     useEffect(() => {
 
-    const tripData =
-        localStorage.getItem("tripInfo")
+        const tripData =
+            localStorage.getItem("tripInfo")
 
-    if (tripData) {
-        setTripInfo(
-            JSON.parse(tripData)
-        )
-    }
+        if (tripData) {
+            setTripInfo(
+                JSON.parse(tripData)
+            )
+        }
 
-    const scheduleData =
-        localStorage.getItem("schedule")
+        const scheduleData =
+            localStorage.getItem("schedule")
 
-    if (scheduleData) {
-        setSchedule(
-            JSON.parse(scheduleData)
-        )
-    }
+        if (scheduleData) {
+            setSchedule(
+                JSON.parse(scheduleData)
+            )
+        }
 
-}, [])
+    }, [])
 
     if (!tripInfo) {
         return (
@@ -148,9 +172,37 @@ export default function TripResultPage() {
 
                                                             <div
                                                                 key={place}
-                                                                className="py-2"
+                                                                className="
+            py-2
+            flex
+            justify-between
+            items-center
+        "
                                                             >
-                                                                {place}
+
+                                                                <span>
+                                                                    {place}
+                                                                </span>
+
+                                                                <button
+                                                                    onClick={() =>
+                                                                        removePlace(
+                                                                            index + 1,
+                                                                            place
+                                                                        )
+                                                                    }
+                                                                    className="
+                bg-red-500
+                text-white
+                px-3
+                py-1
+                rounded
+                text-sm
+            "
+                                                                >
+                                                                    삭제
+                                                                </button>
+
                                                             </div>
 
                                                         ))

@@ -35,16 +35,19 @@ def places(query: str):
 
     return response.json()
 
-@app.get("/route-test")
-def route_test():
+@app.get("/route")
+def route(
+    origin: str,
+    destination: str
+):
 
     url = (
         "https://maps.googleapis.com/maps/api/directions/json"
     )
 
     params = {
-        "origin": "Tokyo Station",
-        "destination": "Tokyo Tower",
+        "origin": origin,
+        "destination": destination,
         "mode": "driving",
         "language": "ko",
         "key": GOOGLE_API_KEY
@@ -60,19 +63,19 @@ def route_test():
 
     return {
 
-        "distance": leg["distance"]["text"],
+        "distance":
+            leg["distance"]["text"],
 
-        "duration": leg["duration"]["text"],
+        "duration":
+            leg["duration"]["text"],
 
-        "polyline": route["overview_polyline"]["points"],
+        "polyline":
+            route["overview_polyline"]["points"],
 
-        "start": {
-            "lat": leg["start_location"]["lat"],
-            "lng": leg["start_location"]["lng"]
-        },
+        "start":
+            leg["start_location"],
 
-        "end": {
-            "lat": leg["end_location"]["lat"],
-            "lng": leg["end_location"]["lng"]
-        }
+        "end":
+            leg["end_location"]
+
     }
