@@ -3,11 +3,7 @@
 import { useEffect, useState } from "react"
 import axios from "axios"
 
-import {
-    GoogleMap,
-    Polyline,
-    useJsApiLoader
-} from "@react-google-maps/api"
+import { GoogleMap, Polyline, Marker, useJsApiLoader } from "@react-google-maps/api"
 
 import { decode } from "@googlemaps/polyline-codec"
 
@@ -24,13 +20,22 @@ export default function SearchPanel() {
     const [distance, setDistance] = useState("")
     const [duration, setDuration] = useState("")
     const [travelMode, setTravelMode] = useState("")
+    const [mapCenter, setMapCenter] =
+    useState({
+        lat: 35.6764,
+        lng: 139.6500
+    })
 
     const [path, setPath] = useState<any[]>([])
     const [map, setMap] =
         useState<google.maps.Map | null>(null)
 
     const [query, setQuery] = useState("")
+    const [origin, setOrigin] = useState("")
+    const [destination, setDestination] = useState("")
     const [places, setPlaces] =
+        useState<any[]>([])
+    const [markers, setMarkers] =
         useState<any[]>([])
 
     const [
@@ -56,49 +61,6 @@ export default function SearchPanel() {
 
     useEffect(() => {
 
-        if (!isOpen) return
-
-        axios
-            .get(
-                "http://127.0.0.1:8000/route-test"
-            )
-            .then((res) => {
-
-                setDistance(
-                    res.data.distance
-                )
-
-                setDuration(
-                    res.data.duration
-                )
-
-                setTravelMode(
-                    "자동차"
-                )
-
-                const decoded =
-                    decode(
-                        res.data.polyline
-                    )
-
-                const formattedPath =
-                    decoded.map(
-                        ([lat, lng]) => ({
-                            lat,
-                            lng
-                        })
-                    )
-
-                setPath(
-                    formattedPath
-                )
-
-            })
-
-    }, [isOpen])
-
-    useEffect(() => {
-
         if (!map) return
 
         if (path.length === 0) return
@@ -115,6 +77,7 @@ export default function SearchPanel() {
     }, [map, path])
 
     const searchPlaces = async () => {
+
 
         if (!query.trim()) return
 
@@ -134,6 +97,89 @@ export default function SearchPanel() {
                 res.data.results
             )
 
+            setMarkers(
+                res.data.results
+            )
+            if (
+                map &&
+                res.data.results.length > 0
+            ) {
+
+                const firstPlace =
+                    res.data.results[0]
+
+                const newCenter = {
+
+    lat:
+        firstPlace.geometry.location.lat,
+
+    lng:
+        firstPlace.geometry.location.lng
+
+}
+
+setMapCenter(newCenter)
+
+map.panTo(newCenter)
+
+
+                map.setZoom(15)
+
+            }
+
+        } catch (err) {
+
+            console.error(err)
+
+        }
+
+    }
+    const searchRoute = async () => {
+
+        if (!origin || !destination) return
+
+        try {
+
+            const res =
+                await axios.get(
+                    "http://127.0.0.1:8000/route",
+                    {
+                        params: {
+                            origin,
+                            destination
+                        }
+                    }
+                )
+
+            setDistance(
+                res.data.distance
+            )
+
+            setDuration(
+                res.data.duration
+            )
+
+            setTravelMode(
+                "자동차"
+            )
+
+            const decoded =
+                decode(
+                    res.data.polyline
+                )
+
+            const formattedPath =
+                decoded.map(
+                    ([lat, lng]) => ({
+                        lat,
+                        lng
+                    })
+                )
+
+            setPath(
+                formattedPath
+            )
+
         } catch (err) {
 
             console.error(err)
@@ -143,53 +189,39 @@ export default function SearchPanel() {
     }
 
     const searchByCategory = async (
-    category: string
-) => {
+        category: string
+    ) => {
 
-    console.log("카테고리", category)
+        setSelectedCategory(category)
 
-    const data =
-        localStorage.getItem("tripInfo")
+        const keyword =
+            query.trim()
+                ? `${query} ${category}`
+                : category
 
-    console.log("tripInfo", data)
+        try {
 
-    if (!data) return
-
-    const tripInfo =
-        JSON.parse(data)
-
-    const keyword =
-        category === "전체"
-            ? tripInfo.city
-            : `${tripInfo.city} ${category}`
-
-    console.log("검색어", keyword)
-
-    try {
-
-        const res =
-            await axios.get(
-                "http://127.0.0.1:8000/places",
-                {
-                    params: {
-                        query: keyword
+            const res =
+                await axios.get(
+                    "http://127.0.0.1:8000/places",
+                    {
+                        params: {
+                            query: keyword
+                        }
                     }
-                }
+                )
+
+            setPlaces(
+                res.data.results
             )
 
-        console.log("응답", res.data)
+        } catch (err) {
 
-        setPlaces(
-            res.data.results
-        )
+            console.error(err)
 
-    } catch (err) {
-
-        console.error("에러", err)
+        }
 
     }
-
-}
 
     return (
 
@@ -316,7 +348,7 @@ export default function SearchPanel() {
                                                         bg-white
                                                         hover:bg-gray-100
                                                         `
-                                                        }
+                                                    }
                                                 `}
                                             >
 
@@ -330,31 +362,89 @@ export default function SearchPanel() {
                                     )
                                 }
 
+
                             </div>
+                            <div className="mt-4 flex gap-2">
+
+                                <input
+                                    value={origin}
+                                    onChange={(e) =>
+                                        setOrigin(
+                                            e.target.value
+                                        )
+                                    }
+                                    placeholder="출발지"
+                                    className="
+            flex-1
+            border
+            rounded-lg
+            px-3
+            py-2
+        "
+                                />
+
+                                <input
+                                    value={destination}
+                                    onChange={(e) =>
+                                        setDestination(
+                                            e.target.value
+                                        )
+                                    }
+                                    placeholder="도착지"
+                                    className="
+            flex-1
+            border
+            rounded-lg
+            px-3
+            py-2
+        "
+                                />
+
+                            </div>
+
+                            <button
+
+                                onClick={searchRoute}
+
+                                className="
+        mt-2
+        w-full
+        bg-green-500
+        text-white
+        py-2
+        rounded-lg
+    "
+                            >
+
+                                길찾기
+
+                            </button>
 
                         </div>
 
                         {/* 지도 */}
 
+                        {/* 지도 */}
+
                         <div
                             className="
-                                flex-1
-                                relative
-                            "
+        flex-1
+        relative
+    "
                         >
 
                             <div
 
                                 className="
-                                    absolute
-                                    top-10
-                                    left-4
-                                    z-10
-                                    bg-white
-                                    rounded-xl
-                                    shadow
-                                    p-4
-                                "
+            absolute
+            top-10
+            left-4
+            z-10
+            bg-white
+            rounded-xl
+            shadow
+            p-4
+        "
                             >
 
                                 <div>
@@ -402,16 +492,14 @@ export default function SearchPanel() {
                                                 mapInstance
                                             )
                                         }
+                                        
 
                                         mapContainerStyle={{
                                             width: "100%",
                                             height: "100%"
                                         }}
 
-                                        center={{
-                                            lat: 35.6764,
-                                            lng: 139.6500
-                                        }}
+                                        center={mapCenter}
 
                                         zoom={12}
                                     >
@@ -436,6 +524,34 @@ export default function SearchPanel() {
 
                                                 />
 
+                                            )
+
+                                        }
+
+                                        {
+
+                                            markers.map(
+                                                (place: any) => (
+
+                                                    <Marker
+
+                                                        key={
+                                                            place.place_id
+                                                        }
+
+                                                        position={{
+                                                            lat:
+                                                                place.geometry
+                                                                    .location.lat,
+
+                                                            lng:
+                                                                place.geometry
+                                                                    .location.lng
+                                                        }}
+
+                                                    />
+
+                                                )
                                             )
 
                                         }
