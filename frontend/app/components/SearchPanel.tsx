@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import axios from "axios"
 
-import { GoogleMap, Polyline, Marker, useJsApiLoader } from "@react-google-maps/api"
+import { GoogleMap, Polyline, Marker, useJsApiLoader, InfoWindow } from "@react-google-maps/api"
 
 import { decode } from "@googlemaps/polyline-codec"
 
@@ -21,10 +21,10 @@ export default function SearchPanel() {
     const [duration, setDuration] = useState("")
     const [travelMode, setTravelMode] = useState("")
     const [mapCenter, setMapCenter] =
-    useState({
-        lat: 35.6764,
-        lng: 139.6500
-    })
+        useState({
+            lat: 35.6764,
+            lng: 139.6500
+        })
 
     const [path, setPath] = useState<any[]>([])
     const [map, setMap] =
@@ -51,6 +51,12 @@ export default function SearchPanel() {
         "쇼핑",
         "숙소"
     ]
+    const [
+        selectedPlace,
+        setSelectedPlace
+    ] = useState<any>(
+        null
+    )
 
     const { isLoaded } =
         useJsApiLoader({
@@ -110,17 +116,17 @@ export default function SearchPanel() {
 
                 const newCenter = {
 
-    lat:
-        firstPlace.geometry.location.lat,
+                    lat:
+                        firstPlace.geometry.location.lat,
 
-    lng:
-        firstPlace.geometry.location.lng
+                    lng:
+                        firstPlace.geometry.location.lng
 
-}
+                }
 
-setMapCenter(newCenter)
+                setMapCenter(newCenter)
 
-map.panTo(newCenter)
+                map.panTo(newCenter)
 
 
                 map.setZoom(15)
@@ -192,26 +198,42 @@ map.panTo(newCenter)
         category: string
     ) => {
 
-        setSelectedCategory(category)
+        if (!map) return
 
-        const keyword =
-            query.trim()
-                ? `${query} ${category}`
-                : category
+        setSelectedCategory(
+            category
+        )
+
+        const center =
+            map.getCenter()?.toJSON()
+
+        if (!center) return
 
         try {
 
             const res =
                 await axios.get(
-                    "http://127.0.0.1:8000/places",
+                    "http://127.0.0.1:8000/nearby",
                     {
                         params: {
-                            query: keyword
+
+                            lat:
+                                center.lat,
+
+                            lng:
+                                center.lng,
+
+                            category
+
                         }
                     }
                 )
 
             setPlaces(
+                res.data.results
+            )
+
+            setMarkers(
                 res.data.results
             )
 
@@ -234,7 +256,7 @@ map.panTo(newCenter)
                 bg-white
                 border-l
                 ${isOpen
-                    ? "w-[700px]"
+                    ? "w-[1200px]"
                     : "w-0"
                 }
             `}
@@ -244,54 +266,45 @@ map.panTo(newCenter)
 
                 isOpen && (
 
-                    <div className="h-full flex flex-col">
+                    <div className="h-full flex flex-col bg-white">
 
                         {/* 검색창 */}
 
-                        <div
-                            className="
-                                p-4
-                                border-b
-                                bg-white
-                            "
-                        >
+                        <div className="p-4 border-b bg-white">
 
-                            <div
-                                className="
-                                    flex
-                                    gap-2
-                                "
-                            >
+                            <div className="flex gap-2">
 
                                 <input
+
                                     value={query}
+
                                     onChange={(e) =>
                                         setQuery(
                                             e.target.value
                                         )
                                     }
-                                    placeholder="도쿄 스시"
+
+                                    placeholder="장소, 주소 검색"
+
                                     className="
-                                        flex-1
-                                        border
-                                        rounded-lg
-                                        px-3
-                                        py-2
-                                    "
+                    flex-1
+                    border
+                    rounded-xl
+                    px-4
+                    py-3
+                "
                                 />
 
                                 <button
 
-                                    onClick={
-                                        searchPlaces
-                                    }
+                                    onClick={searchPlaces}
 
                                     className="
-                                        bg-blue-500
-                                        text-white
-                                        px-4
-                                        rounded-lg
-                                    "
+                    bg-blue-500
+                    text-white
+                    px-5
+                    rounded-xl
+                "
                                 >
 
                                     검색
@@ -299,356 +312,455 @@ map.panTo(newCenter)
                                 </button>
 
                             </div>
+                        </div>
 
-                            {/* 카테고리 */}
+                        {/* 본문 */}
+
+                        <div className="flex-1 flex overflow-hidden">
+
+                            {/* 검색 결과 */}
 
                             <div
                                 className="
-                                    flex
-                                    flex-wrap
-                                    gap-2
-                                    mt-3
-                                "
+                w-[380px]
+                border-r
+                overflow-y-auto
+                bg-white
+            "
                             >
 
                                 {
-                                    categories.map(
+
+                                    places.map(
                                         (
-                                            category
+                                            place: any
                                         ) => (
 
-                                            <button
+                                            <div
 
                                                 key={
-                                                    category
+                                                    place.place_id
                                                 }
 
                                                 onClick={() =>
-                                                    searchByCategory(
-                                                        category
+                                                    setSelectedPlace(place)
+                                                }
+
+                                                className="
+        p-4
+        border-b
+        hover:bg-gray-50
+        cursor-pointer
+    "
+                                            >
+
+                                                {/* 사진 */}
+
+                                                {
+                                                    place.photos?.[0] && (
+
+                                                        <img
+                                                            onClick={() =>
+                                                                setSelectedPlace(place)
+                                                            }
+
+                                                            src={
+                                                                `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${place.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY}`
+                                                            }
+
+                                                            alt={place.name}
+
+                                                            className="
+                    w-full
+                    h-40
+                    object-cover
+                    rounded-xl
+                    mb-3
+                "
+
+                                                        />
+
                                                     )
                                                 }
 
-                                                className={`
-                                                    px-3
-                                                    py-2
-                                                    rounded-full
-                                                    text-sm
-                                                    border
+                                                {/* 이름 */}
 
-                                                    ${selectedCategory === category
+                                                <div
+                                                    className="
+            font-semibold
+            text-base
+        "
+                                                >
+                                                    {place.name}
+                                                </div>
 
-                                                        ? `
-                                                        bg-blue-500
-                                                        text-white
-                                                        border-blue-500
-                                                        `
+                                                {/* 평점 */}
 
-                                                        : `
-                                                        bg-white
-                                                        hover:bg-gray-100
-                                                        `
+                                                <div
+                                                    className="
+            flex
+            items-center
+            gap-2
+            mt-1
+            text-sm
+        "
+                                                >
+
+                                                    <span className="text-yellow-500">
+                                                        ⭐ {place.rating ?? "-"}
+                                                    </span>
+
+                                                    {
+                                                        place.user_ratings_total && (
+
+                                                            <span
+                                                                className="
+                        text-gray-500
+                    "
+                                                            >
+                                                                ({place.user_ratings_total})
+                                                            </span>
+
+                                                        )
                                                     }
-                                                `}
-                                            >
 
-                                                {
-                                                    category
-                                                }
+                                                </div>
 
-                                            </button>
+                                                {/* 주소 */}
+
+                                                <div
+                                                    className="
+            text-sm
+            text-gray-500
+            mt-2
+        "
+                                                >
+                                                    {
+                                                        place.formatted_address
+                                                        ||
+                                                        place.vicinity
+                                                    }
+                                                </div>
+
+                                                {/* 일정추가 */}
+
+                                                <button
+
+                                                    className="
+            mt-3
+            px-3
+            py-2
+            bg-blue-500
+            text-white
+            rounded-lg
+            text-sm
+        "
+                                                >
+
+                                                    일정 추가
+
+                                                </button>
+
+                                            </div>
 
                                         )
                                     )
+
                                 }
 
-
-                            </div>
-                            <div className="mt-4 flex gap-2">
-
-                                <input
-                                    value={origin}
-                                    onChange={(e) =>
-                                        setOrigin(
-                                            e.target.value
-                                        )
-                                    }
-                                    placeholder="출발지"
-                                    className="
-            flex-1
-            border
-            rounded-lg
-            px-3
-            py-2
-        "
-                                />
-
-                                <input
-                                    value={destination}
-                                    onChange={(e) =>
-                                        setDestination(
-                                            e.target.value
-                                        )
-                                    }
-                                    placeholder="도착지"
-                                    className="
-            flex-1
-            border
-            rounded-lg
-            px-3
-            py-2
-        "
-                                />
-
                             </div>
 
-                            <button
+                            {/* 지도 */}
 
-                                onClick={searchRoute}
-
-                                className="
-        mt-2
-        w-full
-        bg-green-500
-        text-white
-        py-2
-        rounded-lg
+                            <div className="flex-1 relative">
+                                {/* 카테고리 */}
+                                {
+                                    !selectedPlace && (
+                                        <div
+                                            className="
+        absolute
+        top-14
+        left-4
+        z-20
+        flex
+        gap-2
+        flex-wrap
     "
-                            >
+                                        >
 
-                                길찾기
+                                            {categories.map((category) => (
 
-                            </button>
+                                                <button
 
-                        </div>
+                                                    key={category}
 
-                        {/* 지도 */}
-
-                        {/* 지도 */}
-
-                        <div
-                            className="
-        flex-1
-        relative
-    "
-                        >
-
-                            <div
-
-                                className="
-            absolute
-            top-10
-            left-4
-            z-10
-            bg-white
-            rounded-xl
-            shadow
-            p-4
-        "
-                            >
-
-                                <div>
-                                    <strong>
-                                        이동수단:
-                                    </strong>
-                                    {" "}
-                                    {
-                                        travelMode
-                                    }
-                                </div>
-
-                                <div>
-                                    <strong>
-                                        거리:
-                                    </strong>
-                                    {" "}
-                                    {
-                                        distance
-                                    }
-                                </div>
-
-                                <div>
-                                    <strong>
-                                        예상시간:
-                                    </strong>
-                                    {" "}
-                                    {
-                                        duration
-                                    }
-                                </div>
-
-                            </div>
-
-                            {
-
-                                isLoaded && (
-
-                                    <GoogleMap
-
-                                        onLoad={(
-                                            mapInstance
-                                        ) =>
-                                            setMap(
-                                                mapInstance
-                                            )
-                                        }
-                                        
-
-                                        mapContainerStyle={{
-                                            width: "100%",
-                                            height: "100%"
-                                        }}
-
-                                        center={mapCenter}
-
-                                        zoom={12}
-                                    >
-
-                                        {
-
-                                            path.length > 0 && (
-
-                                                <Polyline
-
-                                                    path={
-                                                        path
+                                                    onClick={() =>
+                                                        searchByCategory(category)
                                                     }
 
-                                                    options={{
-                                                        strokeColor:
-                                                            "#4285F4",
+                                                    className={`
+                px-4
+                py-2
+                rounded-full
+                shadow-md
+                text-sm
+                font-medium
+                border
 
-                                                        strokeWeight:
-                                                            6
-                                                    }}
+                ${selectedCategory === category
 
-                                                />
+                                                            ? `
+                        bg-blue-500
+                        text-white
+                        border-blue-500
+                        `
 
-                                            )
-
-                                        }
-
-                                        {
-
-                                            markers.map(
-                                                (place: any) => (
-
-                                                    <Marker
-
-                                                        key={
-                                                            place.place_id
+                                                            : `
+                        bg-white
+                        text-gray-700
+                        border-gray-200
+                        hover:bg-gray-50
+                        `
                                                         }
+            `}
+                                                >
 
-                                                        position={{
-                                                            lat:
-                                                                place.geometry
-                                                                    .location.lat,
+                                                    {category}
 
-                                                            lng:
-                                                                place.geometry
-                                                                    .location.lng
+                                                </button>
+
+                                            ))}
+
+                                        </div>
+                                    )
+                                }
+                                {
+
+                                    isLoaded && (
+
+                                        <GoogleMap
+
+                                            onLoad={(
+                                                mapInstance
+                                            ) =>
+                                                setMap(
+                                                    mapInstance
+                                                )
+                                            }
+
+                                            mapContainerStyle={{
+                                                width: "100%",
+                                                height: "100%"
+                                            }}
+
+                                            center={mapCenter}
+
+                                            zoom={12}
+                                        >
+
+                                            {
+
+                                                path.length > 0 && (
+
+                                                    <Polyline
+
+                                                        path={path}
+
+                                                        options={{
+                                                            strokeColor:
+                                                                "#4285F4",
+
+                                                            strokeWeight:
+                                                                6
                                                         }}
 
                                                     />
 
                                                 )
-                                            )
 
-                                        }
+                                            }
 
-                                    </GoogleMap>
+                                            {
 
-                                )
+                                                markers.map(
+                                                    (
+                                                        place: any
+                                                    ) => (
 
-                            }
+                                                        <Marker
 
-                        </div>
+                                                            key={
+                                                                place.place_id
+                                                            }
 
-                        {/* 검색 결과 */}
+                                                            position={{
+                                                                lat:
+                                                                    place.geometry
+                                                                        .location.lat,
 
-                        <div
-                            className="
-                                h-64
-                                overflow-y-auto
-                                border-t
-                                bg-white
-                            "
-                        >
+                                                                lng:
+                                                                    place.geometry
+                                                                        .location.lng
+                                                            }}
 
-                            {
-                                places.map(
-                                    (
-                                        place: any
-                                    ) => (
+                                                            onClick={() =>
+                                                                setSelectedPlace(
+                                                                    place
+                                                                )
+                                                            }
+
+                                                        />
+
+                                                    )
+                                                )
+
+                                            }
+
+                                        </GoogleMap>
+
+                                    )
+
+
+                                }
+                                {
+                                    selectedPlace && (
 
                                         <div
 
-                                            key={
-                                                place.place_id
-                                            }
-
                                             className="
-                                                flex
-                                                justify-between
-                                                items-center
-                                                p-4
-                                                border-b
-                                            "
+                absolute
+                top-4
+                left-4
+                w-[400px]
+                h-[90%]
+                bg-white
+                rounded-2xl
+                shadow-2xl
+                z-30
+                overflow-y-auto
+            "
                                         >
 
-                                            <div>
+                                            {/* 닫기 */}
 
-                                                <div
-                                                    className="
-                                                        font-medium
-                                                    "
-                                                >
-                                                    {
-                                                        place.name
-                                                    }
-                                                </div>
+                                            <div
+                                                className="
+                    flex
+                    justify-end
+                    p-4
+                "
+                                            >
 
-                                                <div
-                                                    className="
-                                                        text-sm
-                                                        text-gray-500
-                                                    "
-                                                >
-                                                    {
-                                                        place.formatted_address
+                                                <button
+
+                                                    onClick={() =>
+                                                        setSelectedPlace(
+                                                            null
+                                                        )
                                                     }
-                                                </div>
+
+                                                    className="
+                        text-2xl
+                        font-bold
+                    "
+                                                >
+
+                                                    ✕
+
+                                                </button>
 
                                             </div>
 
-                                            <button
+                                            {/* 사진 */}
 
-                                                onClick={() => {
+                                            {
+                                                selectedPlace.photos?.[0] && (
 
-                                                    alert(
-                                                        "DAY 추가 예정"
-                                                    )
+                                                    <img
 
-                                                }}
+                                                        src={
+                                                            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${selectedPlace.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY}`
+                                                        }
 
-                                                className="
-                                                    bg-blue-500
-                                                    text-white
-                                                    px-3
-                                                    py-2
-                                                    rounded-lg
-                                                "
-                                            >
+                                                        alt={
+                                                            selectedPlace.name
+                                                        }
 
-                                                추가
+                                                        className="
+                            w-full
+                            h-64
+                            object-cover
+                        "
+                                                    />
 
-                                            </button>
+                                                )
+                                            }
+
+                                            <div className="p-4">
+
+                                                <h2
+                                                    className="
+                        text-2xl
+                        font-bold
+                    "
+                                                >
+                                                    {
+                                                        selectedPlace.name
+                                                    }
+                                                </h2>
+
+                                                <div
+                                                    className="
+                        mt-2
+                        text-yellow-500
+                        text-lg
+                    "
+                                                >
+
+                                                    ⭐ {
+                                                        selectedPlace.rating
+                                                        ?? "-"
+                                                    }
+
+                                                </div>
+
+                                                <div
+                                                    className="
+                        mt-4
+                        text-gray-600
+                    "
+                                                >
+                                                    {
+                                                        selectedPlace.formatted_address
+                                                        ||
+                                                        selectedPlace.vicinity
+                                                    }
+                                                </div>
+
+                                                <button
+
+                                                    className="
+                        mt-6
+                        w-full
+                        bg-blue-500
+                        text-white
+                        py-3
+                        rounded-xl
+                    "
+                                                >
+
+                                                    일정 추가
+
+                                                </button>
+
+                                            </div>
 
                                         </div>
 
                                     )
-                                )
-                            }
+                                }
+
+                            </div>
 
                         </div>
 

@@ -79,3 +79,58 @@ def route(
             leg["end_location"]
 
     }
+@app.get("/nearby")
+def nearby(
+    lat: float,
+    lng: float,
+    category: str
+):
+
+    category_map = {
+
+        "맛집": "restaurant",
+
+        "카페": "cafe",
+
+        "관광지": "tourist_attraction",
+
+        "쇼핑": "shopping_mall",
+
+        "숙소": "lodging"
+
+    }
+
+    place_type = category_map.get(
+        category,
+        "restaurant"
+    )
+
+    url = (
+        "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+    )
+
+    params = {
+
+        "location":
+            f"{lat},{lng}",
+
+        "radius":
+            3000,
+
+        "type":
+            place_type,
+
+        "language":
+            "ko",
+
+        "key":
+            GOOGLE_API_KEY
+
+    }
+
+    response = requests.get(
+        url,
+        params=params
+    )
+
+    return response.json()
