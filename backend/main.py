@@ -134,3 +134,23 @@ def nearby(
     )
 
     return response.json()
+
+@app.get("/place-detail")
+def place_detail(place_id: str):
+
+    url = (
+        "https://maps.googleapis.com/maps/api/place/details/json"
+    )
+
+    params = {
+        "place_id": place_id,
+        "language": "ko",
+        "key": GOOGLE_API_KEY
+    }
+
+    response = requests.get(
+        url,
+        params=params
+    )
+
+    return response.json()

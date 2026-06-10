@@ -244,6 +244,28 @@ export default function SearchPanel() {
         }
 
     }
+    const openPlaceDetail = async (
+        place: any
+    ) => {
+
+        const res =
+            await axios.get(
+                "http://127.0.0.1:8000/place-detail",
+                {
+                    params: {
+                        place_id:
+                            place.place_id
+                    }
+                }
+            )
+
+        setSelectedPlace(
+            res.data.result
+        )
+
+    }
+
+
 
     return (
 
@@ -343,7 +365,7 @@ export default function SearchPanel() {
                                                 }
 
                                                 onClick={() =>
-                                                    setSelectedPlace(place)
+                                                    openPlaceDetail(place)
                                                 }
 
                                                 className="
@@ -361,7 +383,7 @@ export default function SearchPanel() {
 
                                                         <img
                                                             onClick={() =>
-                                                                setSelectedPlace(place)
+                                                                openPlaceDetail(place)
                                                             }
 
                                                             src={
@@ -604,12 +626,12 @@ export default function SearchPanel() {
                                                             }}
 
                                                             onClick={() =>
-                                                                setSelectedPlace(
-                                                                    place
-                                                                )
+                                                                openPlaceDetail(place)
                                                             }
 
+
                                                         />
+
 
                                                     )
                                                 )
@@ -631,13 +653,16 @@ export default function SearchPanel() {
                 absolute
                 top-4
                 left-4
-                w-[400px]
+                w-[420px]
                 h-[90%]
                 bg-white
                 rounded-2xl
                 shadow-2xl
                 z-30
                 overflow-y-auto
+
+                transition-all
+                duration-300
             "
                                         >
 
@@ -648,6 +673,10 @@ export default function SearchPanel() {
                     flex
                     justify-end
                     p-4
+                    sticky
+                    top-0
+                    bg-white
+                    z-10
                 "
                                             >
 
@@ -671,7 +700,7 @@ export default function SearchPanel() {
 
                                             </div>
 
-                                            {/* 사진 */}
+                                            {/* 대표사진 */}
 
                                             {
                                                 selectedPlace.photos?.[0] && (
@@ -679,7 +708,7 @@ export default function SearchPanel() {
                                                     <img
 
                                                         src={
-                                                            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${selectedPlace.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY}`
+                                                            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=1200&photo_reference=${selectedPlace.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY}`
                                                         }
 
                                                         alt={
@@ -696,7 +725,9 @@ export default function SearchPanel() {
                                                 )
                                             }
 
-                                            <div className="p-4">
+                                            <div className="p-5">
+
+                                                {/* 이름 */}
 
                                                 <h2
                                                     className="
@@ -709,10 +740,11 @@ export default function SearchPanel() {
                                                     }
                                                 </h2>
 
+                                                {/* 평점 */}
+
                                                 <div
                                                     className="
                         mt-2
-                        text-yellow-500
                         text-lg
                     "
                                                 >
@@ -722,36 +754,408 @@ export default function SearchPanel() {
                                                         ?? "-"
                                                     }
 
+                                                    <span
+                                                        className="
+                            text-gray-500
+                            ml-2
+                        "
+                                                    >
+
+                                                        (
+                                                        {
+                                                            selectedPlace.user_ratings_total
+                                                        }
+                                                        개 리뷰)
+
+                                                    </span>
+
                                                 </div>
+
+                                                {/* 가격대 */}
+
+                                                {
+                                                    selectedPlace.price_level && (
+
+                                                        <div
+                                                            className="
+                                mt-2
+                                text-gray-700
+                            "
+                                                        >
+
+                                                            가격대 :
+
+                                                            {
+                                                                selectedPlace.price_level === 1 &&
+                                                                " 💰 저렴"
+                                                            }
+
+                                                            {
+                                                                selectedPlace.price_level === 2 &&
+                                                                " 💰💰 보통"
+                                                            }
+
+                                                            {
+                                                                selectedPlace.price_level === 3 &&
+                                                                " 💰💰💰 비쌈"
+                                                            }
+
+                                                            {
+                                                                selectedPlace.price_level === 4 &&
+                                                                " 💰💰💰💰 매우 비쌈"
+                                                            }
+
+                                                        </div>
+
+                                                    )
+                                                }
+
+                                                {/* 영업상태 */}
+
+                                                {
+                                                    selectedPlace.current_opening_hours && (
+
+                                                        <div
+                                                            className="
+                                mt-2
+                                font-medium
+                            "
+                                                        >
+
+                                                            {
+                                                                selectedPlace
+                                                                    .current_opening_hours
+                                                                    ?.open_now
+
+                                                                    ? "🟢 영업중"
+
+                                                                    : "🔴 영업종료"
+                                                            }
+
+                                                        </div>
+
+                                                    )
+                                                }
+
+                                                {/* 설명 */}
+
+                                                {
+                                                    selectedPlace
+                                                        .editorial_summary
+                                                        ?.overview && (
+
+                                                        <div
+                                                            className="
+                                    mt-4
+                                    text-gray-700
+                                "
+                                                        >
+
+                                                            {
+                                                                selectedPlace
+                                                                    .editorial_summary
+                                                                    .overview
+                                                            }
+
+                                                        </div>
+
+                                                    )
+                                                }
+
+                                                {/* 주소 */}
 
                                                 <div
                                                     className="
-                        mt-4
-                        text-gray-600
+                        mt-5
                     "
                                                 >
-                                                    {
-                                                        selectedPlace.formatted_address
-                                                        ||
-                                                        selectedPlace.vicinity
-                                                    }
+
+                                                    <div
+                                                        className="
+                            font-semibold
+                        "
+                                                    >
+                                                        주소
+                                                    </div>
+
+                                                    <div
+                                                        className="
+                            text-gray-600
+                            mt-1
+                        "
+                                                    >
+                                                        {
+                                                            selectedPlace.formatted_address
+                                                            ||
+                                                            selectedPlace.vicinity
+                                                        }
+                                                    </div>
+
                                                 </div>
 
-                                                <button
+                                                {/* 전화번호 */}
 
+                                                {
+                                                    selectedPlace.formatted_phone_number && (
+
+                                                        <div
+                                                            className="
+                                mt-5
+                            "
+                                                        >
+
+                                                            <div
+                                                                className="
+                                    font-semibold
+                                "
+                                                            >
+                                                                전화번호
+                                                            </div>
+
+                                                            <div
+                                                                className="
+                                    text-gray-600
+                                    mt-1
+                                "
+                                                            >
+                                                                {
+                                                                    selectedPlace
+                                                                        .formatted_phone_number
+                                                                }
+                                                            </div>
+
+                                                        </div>
+
+                                                    )
+                                                }
+
+                                                {/* 웹사이트 */}
+
+                                                {
+                                                    selectedPlace.website && (
+
+                                                        <div
+                                                            className="
+                                mt-5
+                            "
+                                                        >
+
+                                                            <div
+                                                                className="
+                                    font-semibold
+                                "
+                                                            >
+                                                                웹사이트
+                                                            </div>
+
+                                                            <a
+
+                                                                href={
+                                                                    selectedPlace.website
+                                                                }
+
+                                                                target="_blank"
+
+                                                                className="
+                                    text-blue-500
+                                    break-all
+                                "
+                                                            >
+
+                                                                {
+                                                                    selectedPlace.website
+                                                                }
+
+                                                            </a>
+
+                                                        </div>
+
+                                                    )
+                                                }
+
+                                                {/* 영업시간 */}
+
+                                                {
+                                                    selectedPlace
+                                                        .opening_hours
+                                                        ?.weekday_text && (
+
+                                                        <div
+                                                            className="
+                                    mt-5
+                                "
+                                                        >
+
+                                                            <div
+                                                                className="
+                                        font-semibold
+                                        mb-2
+                                    "
+                                                            >
+                                                                영업시간
+                                                            </div>
+
+                                                            {
+
+                                                                selectedPlace
+                                                                    .opening_hours
+                                                                    .weekday_text
+                                                                    .map(
+                                                                        (
+                                                                            day: string
+                                                                        ) => (
+
+                                                                            <div
+
+                                                                                key={
+                                                                                    day
+                                                                                }
+
+                                                                                className="
+                                                        text-sm
+                                                        text-gray-600
+                                                    "
+                                                                            >
+
+                                                                                {
+                                                                                    day
+                                                                                }
+
+                                                                            </div>
+
+                                                                        )
+                                                                    )
+
+                                                            }
+
+                                                        </div>
+
+                                                    )
+                                                }
+
+                                                {/* 리뷰 */}
+
+                                                {
+                                                    selectedPlace.reviews
+                                                        ?.length > 0 && (
+
+                                                        <div
+                                                            className="
+                                    mt-6
+                                "
+                                                        >
+
+                                                            <div
+                                                                className="
+                                        font-semibold
+                                        mb-3
+                                    "
+                                                            >
+                                                                리뷰
+                                                            </div>
+
+                                                            {
+
+                                                                selectedPlace
+                                                                    .reviews
+                                                                    .map(
+                                                                        (
+                                                                            review: any
+                                                                        ) => (
+
+                                                                            <div
+
+                                                                                key={
+                                                                                    review.time
+                                                                                }
+
+                                                                                className="
+                                                        border-t
+                                                        pt-3
+                                                        mt-3
+                                                    "
+                                                                            >
+
+                                                                                <div
+                                                                                    className="
+                                                            font-medium
+                                                        "
+                                                                                >
+                                                                                    {
+                                                                                        review.author_name
+                                                                                    }
+                                                                                </div>
+
+                                                                                <div>
+                                                                                    ⭐ {
+                                                                                        review.rating
+                                                                                    }
+                                                                                </div>
+
+                                                                                <div
+                                                                                    className="
+                                                            text-sm
+                                                            text-gray-600
+                                                            mt-1
+                                                        "
+                                                                                >
+                                                                                    {
+                                                                                        review.text
+                                                                                    }
+                                                                                </div>
+
+                                                                            </div>
+
+                                                                        )
+                                                                    )
+
+                                                            }
+
+                                                        </div>
+
+                                                    )
+                                                }
+
+                                                {/* 버튼 */}
+
+                                                <div
                                                     className="
-                        mt-6
-                        w-full
-                        bg-blue-500
-                        text-white
-                        py-3
-                        rounded-xl
+                        mt-8
+                        flex
+                        gap-3
                     "
                                                 >
 
-                                                    일정 추가
+                                                    <button
 
-                                                </button>
+                                                        className="
+                            flex-1
+                            bg-blue-500
+                            text-white
+                            py-3
+                            rounded-xl
+                        "
+                                                    >
+
+                                                        일정 추가
+
+                                                    </button>
+
+                                                    <button
+
+                                                        className="
+                            flex-1
+                            border
+                            py-3
+                            rounded-xl
+                        "
+                                                    >
+
+                                                        길찾기
+
+                                                    </button>
+
+                                                </div>
 
                                             </div>
 
