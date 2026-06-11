@@ -5,6 +5,7 @@ import "./globals.css";
 import {
   SearchPanelProvider,
 } from "./context/SearchPanelContext";
+import { TripProvider } from "./context/TripContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,11 +34,15 @@ export default function RootLayout({
     >
       <body className="min-h-full">
 
-        <SearchPanelProvider>
+        <TripProvider>
 
-          {children}
+          <SearchPanelProvider>
 
-        </SearchPanelProvider>
+            {children}
+
+          </SearchPanelProvider>
+
+        </TripProvider>
 
       </body>
     </html>

@@ -11,11 +11,31 @@ import {
     useSearchPanel
 } from "../context/SearchPanelContext"
 
+import {
+    useTrip
+}
+    from "../context/TripContext"
+
 export default function SearchPanel() {
 
     const {
         isOpen
     } = useSearchPanel()
+
+    const {
+
+        selectedDay,
+        scheduleMode,
+
+        schedule,
+        setSchedule
+
+    } = useTrip()
+
+    console.log(
+        "현재 DAY",
+        selectedDay
+    )
 
     const [distance, setDistance] = useState("")
     const [duration, setDuration] = useState("")
@@ -264,6 +284,68 @@ export default function SearchPanel() {
         )
 
     }
+    const getDefaultDuration = (
+        types: string[]
+    ) => {
+
+        if (
+            types?.includes("restaurant")
+        )
+            return 90
+
+        if (
+            types?.includes("cafe")
+        )
+            return 60
+
+        if (
+            types?.includes("shopping_mall")
+        )
+            return 180
+
+        if (
+            types?.includes("lodging")
+        )
+            return 0
+
+        return 120
+
+    }
+    const getCategory = (
+        types: string[]
+    ) => {
+
+        if (
+            types?.includes(
+                "restaurant"
+            )
+        )
+            return "맛집"
+
+        if (
+            types?.includes(
+                "cafe"
+            )
+        )
+            return "카페"
+
+        if (
+            types?.includes(
+                "shopping_mall"
+            )
+        )
+            return "쇼핑"
+
+        if (
+            types?.includes(
+                "lodging"
+            )
+        )
+            return "숙소"
+
+        return "관광지"
+
+    }
 
 
 
@@ -479,7 +561,7 @@ export default function SearchPanel() {
         "
                                                 >
 
-                                                    일정 추가
+                                                    상세정보
 
                                                 </button>
 
@@ -1128,13 +1210,100 @@ export default function SearchPanel() {
 
                                                     <button
 
+                                                        onClick={() => {
+
+                                                            if (
+                                                                !scheduleMode ||
+                                                                !selectedDay
+                                                            ) {
+
+                                                                alert(
+                                                                    "DAY를 먼저 선택해주세요."
+                                                                )
+
+                                                                return
+
+                                                            }
+
+                                                            const updatedSchedule = {
+
+                                                                ...schedule
+
+                                                            }
+
+                                                            updatedSchedule[
+                                                                selectedDay
+                                                            ] ??= []
+
+                                                            updatedSchedule[
+                                                                selectedDay
+                                                            ].push({
+
+                                                                placeId:
+                                                                    selectedPlace.place_id,
+
+                                                                name:
+                                                                    selectedPlace.name,
+
+                                                                category:
+                                                                    getCategory(
+                                                                        selectedPlace.types
+                                                                    ),
+
+                                                                photo:
+                                                                    selectedPlace.photos?.[0]
+                                                                        ?.photo_reference,
+
+                                                                rating:
+                                                                    selectedPlace.rating,
+
+                                                                address:
+                                                                    selectedPlace.formatted_address,
+
+                                                                duration:
+                                                                    getDefaultDuration(
+                                                                        selectedPlace.types
+                                                                    ),
+
+                                                                priceLevel:
+                                                                    selectedPlace.price_level ?? 0,
+
+                                                                lat:
+                                                                    selectedPlace.geometry.location.lat,
+
+                                                                lng:
+                                                                    selectedPlace.geometry.location.lng
+
+                                                            })
+
+                                                            setSchedule(
+                                                                updatedSchedule
+                                                            )
+
+                                                            localStorage.setItem(
+
+                                                                "schedule",
+
+                                                                JSON.stringify(
+                                                                    updatedSchedule
+                                                                )
+
+                                                            )
+
+                                                            alert(
+                                                                `DAY ${selectedDay}에 추가되었습니다`
+                                                            )
+
+                                                        }}
+
                                                         className="
-                            flex-1
-                            bg-blue-500
-                            text-white
-                            py-3
-                            rounded-xl
-                        "
+        flex-1
+        bg-blue-500
+        text-white
+        py-3
+        rounded-xl
+    "
+
                                                     >
 
                                                         일정 추가

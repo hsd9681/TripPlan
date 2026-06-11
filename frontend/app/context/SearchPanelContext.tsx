@@ -7,10 +7,17 @@ import {
 } from "react"
 
 type SearchPanelContextType = {
+
     isOpen: boolean
+
     setIsOpen: (
         value: boolean
     ) => void
+
+    openPanel: () => void
+
+    closePanel: () => void
+
 }
 
 const SearchPanelContext =
@@ -29,12 +36,20 @@ export function SearchPanelProvider({
         setIsOpen
     ] = useState(false)
 
+    const openPanel = () =>
+        setIsOpen(true)
+
+    const closePanel = () =>
+        setIsOpen(false)
+
     return (
 
         <SearchPanelContext.Provider
             value={{
                 isOpen,
-                setIsOpen
+                setIsOpen,
+                openPanel,
+                closePanel
             }}
         >
 
