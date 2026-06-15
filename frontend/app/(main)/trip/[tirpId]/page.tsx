@@ -10,6 +10,16 @@ import {
     useSearchPanel
 } from "../../../context/SearchPanelContext"
 
+import {
+
+    GoogleMap,
+
+    DirectionsRenderer,
+
+    useJsApiLoader
+
+} from "@react-google-maps/api"
+
 
 export default function TripDetailPage() {
 
@@ -18,6 +28,133 @@ export default function TripDetailPage() {
 
     const [selectedDay, setSelectedDay] =
         useState(1)
+
+    const [
+        directions,
+        setDirections
+    ] = useState<any>(null)
+
+    const {
+        isLoaded
+    } = useJsApiLoader({
+
+        googleMapsApiKey:
+            process.env
+                .NEXT_PUBLIC_GOOGLE_MAP_KEY!
+
+    })
+
+    const createRoute = (
+        day: number
+    ) => {
+
+        const places =
+            schedule[day] || []
+
+        if (
+            places.length < 2
+        ) {
+
+            setDirections(
+                null
+            )
+
+            return
+
+        }
+
+        const origin = {
+
+            lat:
+                places[0].lat,
+
+            lng:
+                places[0].lng
+
+        }
+
+        const destination = {
+
+            lat:
+                places[
+                    places.length - 1
+                ].lat,
+
+            lng:
+                places[
+                    places.length - 1
+                ].lng
+
+        }
+
+        const waypoints =
+
+            places
+
+                .slice(
+                    1,
+                    places.length - 1
+                )
+
+                .map(
+                    (
+                        place: any
+                    ) => ({
+
+                        location: {
+
+                            lat:
+                                place.lat,
+
+                            lng:
+                                place.lng
+
+                        },
+
+                        stopover: true
+
+                    })
+                )
+
+        const directionsService =
+
+            new google.maps
+                .DirectionsService()
+
+        directionsService.route({
+
+            origin,
+
+            destination,
+
+            waypoints,
+
+            optimizeWaypoints:
+                false,
+
+            travelMode:
+
+                google.maps
+                    .TravelMode
+                    .WALKING
+
+        })
+
+            .then(
+
+                (
+                    result
+                ) => {
+
+                    setDirections(
+                        result
+                    )
+
+                }
+
+            )
+
+    }
 
     const calculateTime = (
         items: any[],
@@ -89,6 +226,28 @@ export default function TripDetailPage() {
     const {
         openPanel
     } = useSearchPanel()
+
+    useEffect(() => {
+
+        if (
+            activeTab === "map"
+        ) {
+
+            createRoute(
+                selectedDay
+            )
+
+        }
+
+    }, [
+
+        selectedDay,
+
+        activeTab,
+
+        schedule
+
+    ])
 
 
 
@@ -622,35 +781,64 @@ export default function TripDetailPage() {
                             </div>
 
                             {/* 지도 영역 */}
-
                             <div
                                 className="
-                                flex-1
-                                border
-                                border-[#ECEEF2]
-                                rounded-2xl
-                                p-6
-                                min-h-[700px]
-                            "
+        flex-1
+        border
+        border-[#ECEEF2]
+        rounded-2xl
+        overflow-hidden
+        min-h-[700px]
+    "
                             >
 
-                                <h2
-                                    className="
-                                    text-xl
-                                    font-bold
-                                    mb-4
-                                "
-                                >
-                                    DAY {selectedDay}
-                                </h2>
+                                {
 
-                                <div
-                                    className="
-                                    text-gray-500
-                                "
-                                >
-                                    지도 화면 입니다
-                                </div>
+                                    isLoaded && (
+
+                                        <GoogleMap
+
+                                            mapContainerStyle={{
+
+                                                width: "100%",
+
+                                                height: "700px"
+
+                                            }}
+
+                                            zoom={13}
+
+                                            center={{
+
+                                                lat: 35.6764,
+
+                                                lng: 139.6500
+
+                                            }}
+
+                                        >
+
+                                            {
+
+                                                directions && (
+
+                                                    <DirectionsRenderer
+
+                                                        directions={
+                                                            directions
+                                                        }
+
+                                                    />
+
+                                                )
+
+                                            }
+
+                                        </GoogleMap>
+
+                                    )
+
+                                }
 
                             </div>
 
