@@ -4,6 +4,14 @@ from dotenv import load_dotenv
 import os
 import requests
 
+from database import get_db
+
+from sqlalchemy.orm import Session
+
+from fastapi import Depends
+
+from models.trip import Trip
+
 
 load_dotenv()
 
@@ -154,3 +162,99 @@ def place_detail(place_id: str):
     )
 
     return response.json()
+@app.post("/trip")
+def create_trip(
+
+    trip: dict,
+
+    db: Session = Depends(
+        get_db
+    )
+
+):
+
+    new_trip = Trip(
+
+        title=trip.get(
+            "title"
+        ),
+
+        country=trip.get(
+            "country"
+        ),
+
+        city=trip.get(
+            "city"
+        ),
+
+        start_date=trip.get(
+            "start_date"
+        ),
+
+        end_date=trip.get(
+            "end_date"
+        ),
+
+        people=trip.get(
+            "people"
+        )
+
+    )
+
+    db.add(
+        new_trip
+    )
+
+    db.commit()
+
+    db.refresh(
+        new_trip
+    )
+
+    return {
+
+        "id":
+            new_trip.id
+
+    }
+
+@app.get("/trip")
+def get_trip_list(
+
+    db: Session = Depends(
+        get_db
+    )
+
+):
+
+    trips = db.query(
+        Trip
+    ).all()
+
+    return trips
+
+@app.get("/trip/{trip_id}")
+def get_trip(
+
+    trip_id: int,
+
+    db: Session = Depends(
+        get_db
+    )
+
+):
+
+    trip = (
+
+        db.query(Trip)
+
+        .filter(
+            Trip.id ==
+            trip_id
+        )
+
+        .first()
+
+    )
+
+    return trip

@@ -2,105 +2,32 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import axios from "axios"
 
 export default function TripResultPage() {
 
     const router = useRouter()
 
-    const [tripInfo, setTripInfo] =
-        useState<any>(null)
-
-    const [schedule, setSchedule] =
-        useState<any>({})
+    const [trips, setTrips] =
+        useState<any[]>([])
 
     useEffect(() => {
 
-        const tripData =
-            localStorage.getItem(
-                "tripInfo"
+        axios
+
+            .get(
+                "http://127.0.0.1:8000/trip"
             )
 
-        if (tripData) {
+            .then((res) => {
 
-            setTripInfo(
-                JSON.parse(tripData)
-            )
-
-        }
-
-        const scheduleData =
-            localStorage.getItem(
-                "schedule"
-            )
-
-        if (scheduleData) {
-
-            setSchedule(
-                JSON.parse(
-                    scheduleData
+                setTrips(
+                    res.data
                 )
-            )
 
-        }
+            })
 
     }, [])
-
-    if (!tripInfo) {
-
-        return (
-
-            <main
-                className="
-                p-10
-            "
-            >
-
-                <h1>
-                    데이터 없음
-                </h1>
-
-            </main>
-
-        )
-
-    }
-
-    const totalPlaces =
-
-        Object.values(
-            schedule
-        )
-            .flat()
-            .length
-
-    const tripDays =
-
-        Math.floor(
-
-            (
-
-                new Date(
-                    tripInfo.endDate
-                ).getTime()
-
-                -
-
-                new Date(
-                    tripInfo.startDate
-                ).getTime()
-
-            )
-
-            /
-
-            (
-                1000 *
-                60 *
-                60 *
-                24
-            )
-
-        ) + 1
 
     return (
 
@@ -158,134 +85,149 @@ export default function TripResultPage() {
             </div>
 
             <div
-
                 className="
-                grid
-                md:grid-cols-2
-                lg:grid-cols-3
-                gap-8
-            "
-
+        grid
+        md:grid-cols-2
+        lg:grid-cols-3
+        gap-8
+    "
             >
 
-                <div
+                {trips.map(
+                    (trip) => {
 
-                    className="
-                    bg-white
-                    rounded-3xl
-                    overflow-hidden
-                    shadow-lg
-                    cursor-pointer
-                    hover:shadow-2xl
-                    hover:-translate-y-1
-                    transition-all
-                    duration-300
-                "
-                >
+                        const tripDays =
 
-                    <img
+                            Math.floor(
 
-                        src="https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=1200"
+                                (
 
-                        alt="trip"
+                                    new Date(
+                                        trip.end_date
+                                    ).getTime()
 
-                        className="
-                        w-full
-                        h-64
-                        object-cover
+                                    -
+
+                                    new Date(
+                                        trip.start_date
+                                    ).getTime()
+
+                                )
+
+                                /
+
+                                (
+                                    1000 *
+                                    60 *
+                                    60 *
+                                    24
+                                )
+
+                            ) + 1
+
+                        return (
+
+                            <div
+
+                                key={trip.id}
+
+                                className="
+                        bg-white
+                        rounded-3xl
+                        overflow-hidden
+                        shadow-lg
+                        cursor-pointer
+                        hover:shadow-2xl
+                        hover:-translate-y-1
+                        transition-all
                     "
 
-                    />
+                            >
 
-                    <div className="p-6">
+                                <img
 
-                        <div
+                                    src="https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=1200"
 
-                            className="
-                            text-2xl
-                            font-bold
+                                    alt="trip"
+
+                                    className="
+                            w-full
+                            h-64
+                            object-cover
                         "
 
-                        >
-                            {" "}
-                            {tripInfo.city}
-                            {" "}
-                            여행
+                                />
 
-                        </div>
+                                <div className="p-6">
 
-                        <div
+                                    <div
+                                        className="
+                                text-2xl
+                                font-bold
+                            "
+                                    >
 
-                            className="
-                            text-gray-500
-                            mt-2
-                        "
+                                        {trip.title}
 
-                        >
+                                    </div>
 
-                            {tripInfo.startDate}
+                                    <div
+                                        className="
+                                text-gray-500
+                                mt-2
+                            "
+                                    >
 
-                            {" ~ "}
+                                        {trip.start_date}
 
-                            {tripInfo.endDate}
+                                        {" ~ "}
 
-                        </div>
+                                        {trip.end_date}
 
-                        <div
+                                    </div>
 
-                            className="
-                            mt-5
-                            text-gray-700
-                        "
+                                    <div
+                                        className="
+                                mt-5
+                                text-gray-700
+                            "
+                                    >
 
-                        >
+                                        {tripDays}
+                                        일 일정
 
-                            {tripDays}
-                            일 일정
+                                    </div>
 
-                        </div>
+                                    <button
 
-                        <div
+                                        onClick={() =>
+                                            router.push(
+                                                `/trip/${trip.id}`
+                                            )
+                                        }
 
-                            className="
-                            mt-2
-                            text-gray-700
-                        "
+                                        className="
+                                mt-6
+                                text-blue-500
+                                font-semibold
+                                w-full
+                                text-right
+                            "
 
-                        >
+                                    >
 
-                            장소
-                            {" "}
-                            {totalPlaces}
-                            개
+                                        상세보기 →
 
-                        </div>
+                                    </button>
 
-                        <button
+                                </div>
 
-                            onClick={() =>
-                                router.push(
-                                    "/trip/1"
-                                )
-                            }
+                            </div>
 
-                            className="
-        mt-6
-        text-blue-500
-        font-semibold
-        text-right
-        w-full
-    "
+                        )
 
-                        >
-
-                            상세보기 →
-
-                        </button>
-
-                    </div>
-
-                </div>
+                    }
+                )}
 
             </div>
 

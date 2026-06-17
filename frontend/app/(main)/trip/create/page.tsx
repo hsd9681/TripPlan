@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import axios from "axios"
 
 export default function TripCreatePage() {
     const router = useRouter()
@@ -68,20 +69,50 @@ export default function TripCreatePage() {
                 />
 
                 <button
-                    onClick={() => {
+                    onClick={async () => {
 
-                        localStorage.setItem(
-                            "tripInfo",
-                            JSON.stringify({
-                                country,
-                                city,
-                                startDate,
-                                endDate,
-                                people
-                            })
-                        )
+                        try {
 
-                        router.push("/trip/result")
+                            const res =
+                                await axios.post(
+                                    "http://127.0.0.1:8000/trip",
+                                    {
+
+                                        title:
+                                            `${city} 여행`,
+
+                                        country,
+
+                                        city,
+
+                                        start_date:
+                                            startDate,
+
+                                        end_date:
+                                            endDate,
+
+                                        people
+
+                                    }
+                                )
+
+                            const tripId =
+                                res.data.id
+
+                            router.push(
+                                `/trip/result?tripId=${tripId}`
+                            )
+
+                        } catch (err) {
+
+                            console.error(err)
+
+                            alert(
+                                "여행 생성 실패"
+                            )
+
+                        }
+
                     }}
                     className="bg-blue-500 text-white p-3 rounded"
                 >
