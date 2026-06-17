@@ -16,7 +16,11 @@ import {
 
     DirectionsRenderer,
 
-    useJsApiLoader
+    useJsApiLoader,
+
+    Marker,
+
+    InfoWindow
 
 } from "@react-google-maps/api"
 
@@ -188,6 +192,140 @@ export default function TripDetailPage() {
 
     }
 
+    const removePlace = (
+        index: number
+    ) => {
+
+        const updatedSchedule = {
+            ...schedule
+        }
+
+        updatedSchedule[
+            selectedDay
+        ] = updatedSchedule[
+            selectedDay
+        ].filter(
+            (_: any, i: number) =>
+                i !== index
+        )
+
+        setSchedule(
+            updatedSchedule
+        )
+
+        localStorage.setItem(
+            "schedule",
+            JSON.stringify(
+                updatedSchedule
+            )
+        )
+
+    }
+    const moveUp = (
+        index: number
+    ) => {
+
+        if (
+            index === 0
+        ) return
+
+        const updatedSchedule = {
+            ...schedule
+        }
+
+        const daySchedule =
+            [...updatedSchedule[
+                selectedDay
+            ]]
+
+            ;[
+                daySchedule[
+                index - 1
+                ],
+
+                daySchedule[
+                index
+                ]
+
+            ] = [
+
+                    daySchedule[
+                    index
+                    ],
+
+                    daySchedule[
+                    index - 1
+                    ]
+
+                ]
+
+        updatedSchedule[
+            selectedDay
+        ] = daySchedule
+
+        setSchedule(
+            updatedSchedule
+        )
+
+        localStorage.setItem(
+            "schedule",
+            JSON.stringify(
+                updatedSchedule
+            )
+        )
+
+    }
+    const moveDown = (
+        index: number
+    ) => {
+
+        const daySchedule =
+            schedule[
+            selectedDay
+            ] || []
+
+        if (
+            index ===
+            daySchedule.length - 1
+        ) return
+
+        const updatedSchedule = {
+            ...schedule
+        }
+
+        const copied =
+            [...daySchedule]
+
+            ;[
+                copied[index],
+
+                copied[index + 1]
+
+            ] = [
+
+                    copied[index + 1],
+
+                    copied[index]
+
+                ]
+
+        updatedSchedule[
+            selectedDay
+        ] = copied
+
+        setSchedule(
+            updatedSchedule
+        )
+
+        localStorage.setItem(
+            "schedule",
+            JSON.stringify(
+                updatedSchedule
+            )
+        )
+
+    }
+
     useEffect(() => {
 
         const savedSchedule =
@@ -248,6 +386,16 @@ export default function TripDetailPage() {
         schedule
 
     ])
+
+    const [
+        selectedMarker,
+        setSelectedMarker
+    ] = useState<any>(null)
+
+    const [
+        activeBudgetTab,
+        setActiveBudgetTab
+    ] = useState("walking")
 
 
 
@@ -653,6 +801,81 @@ export default function TripDetailPage() {
                                                         </div>
 
                                                     </div>
+                                                    <div
+                                                        className="
+            ml-auto
+        flex
+        flex-col
+        items-end
+        gap-2
+        self-start
+        "
+                                                    >
+
+                                                        <button
+
+                                                            onClick={() =>
+                                                                removePlace(
+                                                                    index
+                                                                )
+                                                            }
+
+                                                            className="
+                text-red-500
+        text-xl
+        leading-none
+            "
+
+                                                        >
+
+                                                            X
+
+                                                        </button>
+                                                        <button
+
+                                                            onClick={() =>
+                                                                moveUp(
+                                                                    index
+                                                                )
+                                                            }
+
+                                                            className="
+                w-8
+        h-8
+        border
+        rounded-lg
+            "
+
+                                                        >
+
+                                                            ↑
+
+                                                        </button>
+
+                                                        <button
+
+                                                            onClick={() =>
+                                                                moveDown(
+                                                                    index
+                                                                )
+                                                            }
+
+                                                            className="
+                px-3
+                py-1
+                border
+                rounded-lg
+            "
+
+                                                        >
+
+                                                            ↓
+
+                                                        </button>
+
+
+
+                                                    </div>
 
                                                 </div>
 
@@ -823,15 +1046,155 @@ export default function TripDetailPage() {
                                                 directions && (
 
                                                     <DirectionsRenderer
-
-                                                        directions={
-                                                            directions
-                                                        }
-
+                                                        directions={directions}
+                                                        options={{
+                                                            suppressMarkers: true
+                                                        }}
                                                     />
-
                                                 )
 
+
+                                            }
+                                            {
+                                                (schedule[selectedDay] || [])
+                                                    .map(
+
+                                                        (
+                                                            place: any,
+                                                            index: number
+                                                        ) => (
+
+                                                            <Marker
+
+                                                                key={index}
+
+                                                                position={{
+
+                                                                    lat:
+                                                                        place.lat,
+
+                                                                    lng:
+                                                                        place.lng
+
+                                                                }}
+
+                                                                onClick={() =>
+
+                                                                    setSelectedMarker(
+                                                                        place
+                                                                    )
+
+                                                                }
+
+                                                            />
+
+                                                        )
+
+                                                    )
+                                            }
+                                            {
+                                                selectedMarker && (
+
+                                                    <InfoWindow
+
+                                                        position={{
+
+                                                            lat:
+                                                                selectedMarker.lat,
+
+                                                            lng:
+                                                                selectedMarker.lng
+
+                                                        }}
+
+                                                        onCloseClick={() =>
+                                                            setSelectedMarker(
+                                                                null
+                                                            )
+                                                        }
+
+                                                    >
+
+                                                        <div
+                                                            className="
+                    w-[200px]
+                "
+                                                        >
+
+                                                            {
+
+                                                                selectedMarker.photo && (
+
+                                                                    <img
+
+                                                                        src={
+
+                                                                            `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${selectedMarker.photo}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY}`
+
+                                                                        }
+
+                                                                        alt={
+                                                                            selectedMarker.name
+                                                                        }
+
+                                                                        className="
+                                w-full
+                                h-28
+                                object-cover
+                                rounded-lg
+                                mb-2
+                            "
+
+                                                                    />
+
+                                                                )
+
+                                                            }
+
+                                                            <div
+                                                                className="
+                        font-bold
+                        text-lg
+                    "
+                                                            >
+
+                                                                {
+                                                                    selectedMarker.name
+                                                                }
+
+                                                            </div>
+
+                                                            <div
+                                                                className="
+                        text-sm
+                        text-gray-500
+                    "
+                                                            >
+
+                                                                {
+                                                                    selectedMarker.category
+                                                                }
+
+                                                            </div>
+                                                            {
+                                                                selectedMarker.rating && (
+                                                                    <div
+                                                                        className="
+                text-sm
+                text-yellow-500
+                mt-1
+            "
+                                                                    >
+                                                                        ★ {selectedMarker.rating}
+                                                                    </div>
+                                                                )
+                                                            }
+
+                                                        </div>
+
+                                                    </InfoWindow>
+
+                                                )
                                             }
 
                                         </GoogleMap>
@@ -851,91 +1214,261 @@ export default function TripDetailPage() {
                 {/* 예산 탭 */}
 
                 {
-
-                    activeTab ===
-                    "budget" && (
+                    activeTab === "budget" && (
 
                         <div
                             className="
-                            border
-                            border-[#ECEEF2]
-                            rounded-2xl
-                            p-6
-                            min-h-[700px]
-                        "
+                space-y-6
+            "
                         >
 
-                            <h2
-                                className="
-                                text-2xl
-                                font-bold
-                                mb-8
-                            "
-                            >
-                                전체 여행 예산
-                            </h2>
+                            {/* 총 예산 */}
 
                             <div
                                 className="
-                                text-4xl
-                                font-bold
-                                mb-10
-                            "
+                    border
+                    border-[#ECEEF2]
+                    rounded-2xl
+                    p-6
+                "
                             >
-                                ₩ 0
+
+                                <div
+                                    className="
+                        text-gray-500
+                    "
+                                >
+
+                                    총 예산
+
+                                </div>
+
+                                <div
+                                    className="
+                        text-4xl
+                        font-bold
+                        mt-2
+                    "
+                                >
+
+                                    ¥15,000
+
+                                </div>
+
                             </div>
 
+                            {/* 교통수단 탭 */}
+
                             <div
                                 className="
-                                space-y-4
-                            "
+                    flex
+                    gap-3
+                "
                             >
 
-                                {
-
-                                    [1, 2, 3, 4, 5]
-                                        .map(
-                                            (
-                                                day
-                                            ) => (
-
-                                                <div
-
-                                                    key={
-                                                        day
-                                                    }
-
-                                                    className="
-                                                    border
-                                                    border-[#ECEEF2]
-                                                    rounded-xl
-                                                    p-4
-                                                    flex
-                                                    justify-between
-                                                "
-                                                >
-
-                                                    <span>
-                                                        DAY {day}
-                                                    </span>
-
-                                                    <span>
-                                                        ₩ 0
-                                                    </span>
-
-                                                </div>
-
-                                            )
+                                <button
+                                    onClick={() =>
+                                        setActiveBudgetTab(
+                                            "walking"
                                         )
+                                    }
+                                    className={`
+                        px-5
+                        py-3
+                        rounded-xl
+                        border
 
-                                }
+                        ${activeBudgetTab === "walking"
+                                            ? "bg-blue-500 text-white"
+                                            : "bg-white border-[#ECEEF2]"
+                                        }
+                    `}
+                                >
+
+                                    도보
+
+                                </button>
+
+                                <button
+                                    onClick={() =>
+                                        setActiveBudgetTab(
+                                            "transit"
+                                        )
+                                    }
+                                    className={`
+                        px-5
+                        py-3
+                        rounded-xl
+                        border
+
+                        ${activeBudgetTab === "transit"
+                                            ? "bg-blue-500 text-white"
+                                            : "bg-white border-[#ECEEF2]"
+                                        }
+                    `}
+                                >
+
+                                    대중교통
+
+                                </button>
+
+                                <button
+                                    onClick={() =>
+                                        setActiveBudgetTab(
+                                            "driving"
+                                        )
+                                    }
+                                    className={`
+                        px-5
+                        py-3
+                        rounded-xl
+                        border
+
+                        ${activeBudgetTab === "driving"
+                                            ? "bg-blue-500 text-white"
+                                            : "bg-white border-[#ECEEF2]"
+                                        }
+                    `}
+                                >
+
+                                    차량
+
+                                </button>
+
+                            </div>
+
+                            {/* 비용 요약 */}
+
+                            <div
+                                className="
+                    border
+                    border-[#ECEEF2]
+                    rounded-2xl
+                    p-6
+                "
+                            >
+
+                                <div
+                                    className="
+                        grid
+                        grid-cols-2
+                        gap-6
+                    "
+                                >
+
+                                    <div>
+
+                                        <div
+                                            className="
+                                text-gray-500
+                            "
+                                        >
+
+                                            교통비
+
+                                        </div>
+
+                                        <div
+                                            className="
+                                text-xl
+                                font-bold
+                            "
+                                        >
+
+                                            {
+                                                activeBudgetTab === "walking"
+                                                    ? "¥0"
+                                                    : activeBudgetTab === "transit"
+                                                        ? "¥1,250"
+                                                        : "¥9,850"
+                                            }
+
+                                        </div>
+
+                                    </div>
+
+                                    <div>
+
+                                        <div
+                                            className="
+                                text-gray-500
+                            "
+                                        >
+
+                                            식비
+
+                                        </div>
+
+                                        <div
+                                            className="
+                                text-xl
+                                font-bold
+                            "
+                                        >
+
+                                            ¥7,600
+
+                                        </div>
+
+                                    </div>
+
+                                    <div>
+
+                                        <div
+                                            className="
+                                text-gray-500
+                            "
+                                        >
+
+                                            입장료
+
+                                        </div>
+
+                                        <div
+                                            className="
+                                text-xl
+                                font-bold
+                            "
+                                        >
+
+                                            ¥1,000
+
+                                        </div>
+
+                                    </div>
+
+                                    <div>
+
+                                        <div
+                                            className="
+                                text-gray-500
+                            "
+                                        >
+
+                                            쇼핑
+
+                                        </div>
+
+                                        <div
+                                            className="
+                                text-xl
+                                font-bold
+                            "
+                                        >
+
+                                            ¥6,400
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
 
                             </div>
 
                         </div>
 
                     )
-
                 }
 
             </div>
