@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react"
 
+import { useParams } from "next/navigation"
+import axios from "axios"
+
 import {
     useTrip
 } from "../../../context/TripContext"
@@ -26,6 +29,12 @@ import {
 
 
 export default function TripDetailPage() {
+
+    const params = useParams()
+
+    const tripId = Number(
+        params.tripId
+    )
 
     const [activeTab, setActiveTab] =
         useState("schedule")
@@ -328,25 +337,41 @@ export default function TripDetailPage() {
 
     useEffect(() => {
 
-        const savedSchedule =
+        console.log(params)
+        console.log(params.tripId)
+        console.log(tripId)
 
-            localStorage.getItem(
-                "schedule"
+
+        axios
+
+            .get(
+                `http://127.0.0.1:8000/schedule/${tripId}`
             )
 
-        if (
-            savedSchedule
-        ) {
+            .then((res) => {
+                const grouped: any = {}
 
-            setSchedule(
-                JSON.parse(
-                    savedSchedule
+                res.data.forEach(
+                    (item: any) => {
+
+                        grouped[
+                            item.day_number
+                        ] ??= []
+
+                        grouped[
+                            item.day_number
+                        ].push(item)
+
+                    }
                 )
-            )
 
-        }
+                setSchedule(
+                    grouped
+                )
 
-    }, [])
+            })
+
+    }, [tripId])
 
 
     const {
@@ -396,6 +421,8 @@ export default function TripDetailPage() {
         activeBudgetTab,
         setActiveBudgetTab
     ] = useState("walking")
+
+
 
 
 

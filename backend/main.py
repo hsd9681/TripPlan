@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from fastapi import Depends
 
 from models.trip import Trip
-
+from models.schedule import Schedule
 
 load_dotenv()
 
@@ -258,3 +258,112 @@ def get_trip(
     )
 
     return trip
+
+@app.post("/schedule")
+def create_schedule(
+
+    item: dict,
+
+    db: Session = Depends(
+        get_db
+    )
+
+):
+
+    schedule = Schedule(
+
+        trip_id=item.get(
+            "trip_id"
+        ),
+
+        day_number=item.get(
+            "day_number"
+        ),
+
+        order_no=item.get(
+            "order_no"
+        ),
+
+        place_id=item.get(
+            "place_id"
+        ),
+
+        name=item.get(
+            "name"
+        ),
+
+        category=item.get(
+            "category"
+        ),
+
+        photo=item.get(
+            "photo"
+        ),
+
+        rating=item.get(
+            "rating"
+        ),
+
+        address=item.get(
+            "address"
+        ),
+
+        duration=item.get(
+            "duration"
+        ),
+
+        lat=item.get(
+            "lat"
+        ),
+
+        lng=item.get(
+            "lng"
+        )
+
+    )
+
+    db.add(schedule)
+
+    db.commit()
+
+    db.refresh(schedule)
+
+    return {
+
+        "id":
+            schedule.id
+
+    }
+
+@app.get("/schedule/{trip_id}")
+def get_schedule(
+
+    trip_id: int,
+
+    db: Session = Depends(
+        get_db
+    )
+
+):
+
+    schedules = (
+
+        db.query(
+            Schedule
+        )
+
+        .filter(
+            Schedule.trip_id
+            == trip_id
+        )
+
+        .order_by(
+            Schedule.day_number,
+            Schedule.order_no
+        )
+
+        .all()
+
+    )
+
+    return schedules

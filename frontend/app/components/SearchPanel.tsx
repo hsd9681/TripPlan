@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import axios from "axios"
+import { useParams } from "next/navigation"
 
 import { GoogleMap, Polyline, Marker, useJsApiLoader, InfoWindow } from "@react-google-maps/api"
 
@@ -17,6 +18,12 @@ import {
     from "../context/TripContext"
 
 export default function SearchPanel() {
+
+    const params = useParams()
+
+    const tripId = Number(
+        params.tripId
+    )
 
     const {
         isOpen
@@ -1210,7 +1217,7 @@ export default function SearchPanel() {
 
                                                     <button
 
-                                                        onClick={() => {
+                                                        onClick={async () => {
 
                                                             if (
                                                                 !scheduleMode ||
@@ -1225,21 +1232,22 @@ export default function SearchPanel() {
 
                                                             }
 
-                                                            const updatedSchedule = {
+                                                            const newPlace = {
 
-                                                                ...schedule
+                                                                trip_id:
+                                                                    tripId,
 
-                                                            }
+                                                                day_number:
+                                                                    selectedDay,
 
-                                                            updatedSchedule[
-                                                                selectedDay
-                                                            ] ??= []
+                                                                order_no:
+                                                                    (
+                                                                        schedule[
+                                                                            selectedDay
+                                                                        ]?.length || 0
+                                                                    ) + 1,
 
-                                                            updatedSchedule[
-                                                                selectedDay
-                                                            ].push({
-
-                                                                placeId:
+                                                                place_id:
                                                                     selectedPlace.place_id,
 
                                                                 name:
@@ -1265,29 +1273,32 @@ export default function SearchPanel() {
                                                                         selectedPlace.types
                                                                     ),
 
-                                                                priceLevel:
-                                                                    selectedPlace.price_level ?? 0,
-
                                                                 lat:
                                                                     selectedPlace.geometry.location.lat,
 
                                                                 lng:
                                                                     selectedPlace.geometry.location.lng
 
-                                                            })
+                                                            }
+                                                            await axios.post(
+
+                                                                "http://127.0.0.1:8000/schedule",
+
+                                                                newPlace
+
+                                                            )
+                                                            const updatedSchedule = {
+                                                                ...schedule
+                                                            }
+
+                                                            updatedSchedule[selectedDay] ??= []
+
+                                                            updatedSchedule[selectedDay].push(
+                                                                newPlace
+                                                            )
 
                                                             setSchedule(
                                                                 updatedSchedule
-                                                            )
-
-                                                            localStorage.setItem(
-
-                                                                "schedule",
-
-                                                                JSON.stringify(
-                                                                    updatedSchedule
-                                                                )
-
                                                             )
 
                                                             alert(
