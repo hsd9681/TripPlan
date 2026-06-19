@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import os
 import requests
+from fastapi import Body
 
 from database import get_db
 
@@ -367,3 +368,92 @@ def get_schedule(
     )
 
     return schedules
+
+@app.delete("/schedule/{schedule_id}")
+def delete_schedule(
+
+    schedule_id: int,
+
+    db: Session = Depends(
+        get_db
+    )
+
+):
+
+    schedule = (
+
+        db.query(
+            Schedule
+        )
+
+        .filter(
+            Schedule.id
+            == schedule_id
+        )
+
+        .first()
+
+    )
+
+    if not schedule:
+
+        return {
+
+            "message":
+                "not found"
+
+        }
+
+    db.delete(
+        schedule
+    )
+
+    db.commit()
+
+    return {
+
+        "message":
+            "deleted"
+
+    }
+
+@app.put("/schedule/order")
+def update_schedule_order(
+
+    items: list = Body(...),
+
+    db: Session = Depends(
+        get_db
+    )
+
+):
+
+    for item in items:
+
+        schedule = (
+
+            db.query(
+                Schedule
+            )
+
+            .filter(
+                Schedule.id
+                == item["id"]
+            )
+
+            .first()
+
+        )
+
+        if schedule:
+
+            schedule.order_no = (
+                item["order_no"]
+            )
+
+    db.commit()
+
+    return {
+        "message":
+            "updated"
+    }

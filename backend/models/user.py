@@ -16,7 +16,8 @@ class User(Base):
 
     id = Column(
         BigInteger,
-        primary_key=True
+        primary_key=True,
+        autoincrement=True
     )
 
     email = Column(

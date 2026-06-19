@@ -200,10 +200,21 @@ export default function TripDetailPage() {
         return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
 
     }
-
-    const removePlace = (
+    const removePlace = async (
         index: number
     ) => {
+
+        const place =
+
+            schedule[
+            selectedDay
+            ][index]
+
+        await axios.delete(
+
+            `http://127.0.0.1:8000/schedule/${place.id}`
+
+        )
 
         const updatedSchedule = {
             ...schedule
@@ -222,15 +233,9 @@ export default function TripDetailPage() {
             updatedSchedule
         )
 
-        localStorage.setItem(
-            "schedule",
-            JSON.stringify(
-                updatedSchedule
-            )
-        )
-
     }
-    const moveUp = (
+
+    const moveUp = async (
         index: number
     ) => {
 
@@ -276,15 +281,31 @@ export default function TripDetailPage() {
             updatedSchedule
         )
 
-        localStorage.setItem(
-            "schedule",
-            JSON.stringify(
-                updatedSchedule
+
+        await axios.put(
+
+            "http://127.0.0.1:8000/schedule/order",
+
+            daySchedule.map(
+
+                (
+                    item: any,
+                    idx: number
+                ) => ({
+
+                    id: item.id,
+
+                    order_no:
+                        idx + 1
+
+                })
+
             )
+
         )
 
     }
-    const moveDown = (
+    const moveDown = async (
         index: number
     ) => {
 
@@ -326,20 +347,33 @@ export default function TripDetailPage() {
             updatedSchedule
         )
 
-        localStorage.setItem(
-            "schedule",
-            JSON.stringify(
-                updatedSchedule
+        await axios.put(
+
+            "http://127.0.0.1:8000/schedule/order",
+
+            copied.map(
+
+                (
+                    item: any,
+                    idx: number
+                ) => ({
+
+                    id: item.id,
+
+                    order_no:
+                        idx + 1
+
+                })
+
             )
+
         )
 
     }
 
     useEffect(() => {
 
-        console.log(params)
-        console.log(params.tripId)
-        console.log(tripId)
+            
 
 
         axios
@@ -349,6 +383,10 @@ export default function TripDetailPage() {
             )
 
             .then((res) => {
+                console.log(
+        "DB 응답",
+        res.data
+    )
                 const grouped: any = {}
 
                 res.data.forEach(

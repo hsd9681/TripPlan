@@ -39,11 +39,6 @@ export default function SearchPanel() {
 
     } = useTrip()
 
-    console.log(
-        "현재 DAY",
-        selectedDay
-    )
-
     const [distance, setDistance] = useState("")
     const [duration, setDuration] = useState("")
     const [travelMode, setTravelMode] = useState("")
