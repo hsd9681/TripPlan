@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import os
 import requests
 from fastapi import Body
-
+from fastapi import Response
 from database import get_db
 
 from sqlalchemy.orm import Session
@@ -13,19 +13,134 @@ from fastapi import Depends
 
 from models.trip import Trip
 from models.schedule import Schedule
+from models.user import User
+
+from jose import jwt
+from datetime import datetime, timedelta
+
+from jose import jwt, JWTError
+
+from fastapi import Request
 
 load_dotenv()
+
+SECRET_KEY = os.getenv(
+    "SECRET_KEY"
+)
+
+ALGORITHM = os.getenv(
+    "ALGORITHM"
+)
+
+ACCESS_TOKEN_EXPIRE_MINUTES = int(
+
+    os.getenv(
+        "ACCESS_TOKEN_EXPIRE_MINUTES"
+    )
+
+)
+
+
+def get_current_user(
+
+    request: Request,
+
+    db: Session = Depends(
+        get_db
+    )
+
+):
+
+    print(
+        "COOKIES =",
+        request.cookies
+    )
+
+    token = request.cookies.get(
+
+        "access_token"
+
+    )
+
+    print(
+        "TOKEN =",
+        token
+    )
+
+    if not token:
+
+        return None
+
+    try:
+
+        payload = jwt.decode(
+
+            token,
+
+            SECRET_KEY,
+
+            algorithms=[
+                ALGORITHM
+            ]
+
+        )
+
+        print(
+            "PAYLOAD =",
+            payload
+        )
+
+        user_id = int(
+            payload["sub"]
+        )
+
+        user = (
+
+            db.query(User)
+
+            .filter(
+                User.id ==
+                user_id
+            )
+
+            .first()
+
+        )
+
+        print(
+            "USER =",
+            user
+        )
+
+        return user
+
+    except JWTError as e:
+
+        print(
+            "JWT ERROR =",
+            e
+        )
+
+        return None
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 app = FastAPI()
 
 app.add_middleware(
+
     CORSMiddleware,
-    allow_origins=["*"],
+
+    allow_origins=[
+        "http://localhost:3000"
+    ],
+
     allow_credentials=True,
+
     allow_methods=["*"],
-    allow_headers=["*"],
+
+    allow_headers=["*"]
+
 )
 
 @app.get("/places")
@@ -456,4 +571,222 @@ def update_schedule_order(
     return {
         "message":
             "updated"
+    }
+
+@app.post("/signup")
+def signup(
+
+    user: dict,
+
+    db: Session = Depends(
+        get_db
+    )
+
+):
+
+    exists = (
+
+        db.query(User)
+
+        .filter(
+            User.email
+            == user["email"]
+        )
+
+        .first()
+
+    )
+
+    if exists:
+
+        return {
+
+            "message":
+                "email exists"
+
+        }
+
+    new_user = User(
+
+        email=user["email"],
+
+        password=user["password"],
+
+        nickname=user["nickname"]
+
+    )
+
+    db.add(
+        new_user
+    )
+
+    db.commit()
+
+    db.refresh(
+        new_user
+    )
+
+    return {
+
+        "id":
+            new_user.id
+
+    }
+
+@app.post("/login")
+def login(
+
+    user: dict,
+
+    response: Response,
+
+    db: Session = Depends(
+        get_db
+    )
+
+):
+
+    db_user = (
+
+        db.query(User)
+
+        .filter(
+            User.email
+            == user["email"]
+        )
+
+        .first()
+
+    )
+
+    if not db_user:
+
+        return {
+
+            "message":
+                "user not found"
+
+        }
+
+    if (
+
+        db_user.password
+        != user["password"]
+
+    ):
+
+        return {
+
+            "message":
+                "wrong password"
+
+        }
+
+    token = create_access_token(
+        db_user.id
+    )
+
+    response.set_cookie(
+
+        key="access_token",
+
+        value=token,
+
+        httponly=True,
+
+        samesite="lax",
+
+        secure=False
+
+    )
+
+    return {
+
+        "message":
+            "login success",
+
+        "user": {
+
+            "id":
+                db_user.id,
+
+            "email":
+                db_user.email,
+
+            "nickname":
+                db_user.nickname
+
+        }
+
+    }
+
+def create_access_token(
+    user_id: int
+):
+
+    expire = (
+
+        datetime.utcnow()
+
+        + timedelta(
+
+            minutes=
+            ACCESS_TOKEN_EXPIRE_MINUTES
+
+        )
+
+    )
+
+    payload = {
+
+        "sub":
+            str(user_id),
+
+        "exp":
+            expire
+
+    }
+
+    token = jwt.encode(
+
+        payload,
+
+        SECRET_KEY,
+
+        algorithm=
+        ALGORITHM
+
+    )
+
+    return token
+
+@app.get("/me")
+def me(
+
+    user: User = Depends(
+        get_current_user
+    )
+
+):
+
+    if not user:
+
+        return {
+
+            "message":
+                "unauthorized"
+
+        }
+
+    return {
+
+        "id":
+            user.id,
+
+        "email":
+            user.email,
+
+        "nickname":
+            user.nickname
+
     }

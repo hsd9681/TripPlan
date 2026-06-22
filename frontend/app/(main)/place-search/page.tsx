@@ -13,7 +13,7 @@ export default function PlaceSearchPage() {
         try {
 
             const res = await axios.get(
-                "http://127.0.0.1:8000/places",
+                "http://localhost:8000/places",
                 {
                     params: {
                         query

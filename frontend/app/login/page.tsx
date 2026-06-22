@@ -1,5 +1,10 @@
 "use client"
 
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import axios from "axios"
+
+
 import Link from "next/link"
 import {
     FcGoogle
@@ -15,6 +20,11 @@ import {
 } from "react-icons/si"
 
 export default function LoginPage() {
+
+    const router = useRouter()
+
+    const [email, setEmail] = useState("")
+    const [password, setPassword] = useState("")
 
     return (
 
@@ -73,21 +83,29 @@ export default function LoginPage() {
                     <input
                         type="email"
                         placeholder="이메일"
+                        value={email}
+                        onChange={(e) =>
+                            setEmail(e.target.value)
+                        }
                         className="
-                            border
-                            rounded-xl
-                            p-3
-                        "
+        border
+        rounded-xl
+        p-3
+    "
                     />
 
                     <input
                         type="password"
                         placeholder="비밀번호"
+                        value={password}
+                        onChange={(e) =>
+                            setPassword(e.target.value)
+                        }
                         className="
-                            border
-                            rounded-xl
-                            p-3
-                        "
+        border
+        rounded-xl
+        p-3
+    "
                     />
 
                     <label
@@ -104,18 +122,65 @@ export default function LoginPage() {
                     </label>
 
                     <button
+
+                        onClick={async () => {
+
+                            try {
+
+                                const res = await axios.post(
+
+                                    "http://localhost:8000/login",
+
+                                    {
+
+                                        email,
+
+                                        password
+
+                                    },
+
+                                    {
+
+                                        withCredentials: true
+
+                                    }
+
+                                )
+
+                                console.log(
+                                    res.data
+                                )
+
+                                alert(
+                                    "로그인 성공"
+                                )
+
+                                router.push("/")
+
+                            }
+
+                            catch (err) {
+
+                                console.error(err)
+
+                                alert(
+                                    "로그인 실패"
+                                )
+
+                            }
+
+                        }}
+
                         className="
-                            bg-blue-600
-                            text-white
-                            p-3
-                            rounded-xl
-                            font-semibold
-                        "
+        bg-blue-600
+        text-white
+        p-3
+        rounded-xl
+        font-semibold
+    "
                     >
-                        <Link
-                            href="/">
-                            로그인
-                        </Link>
+
+                        로그인
 
                     </button>
 

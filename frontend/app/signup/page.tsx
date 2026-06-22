@@ -1,8 +1,19 @@
 "use client"
 
 import Link from "next/link"
+import axios from "axios"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
 
 export default function SignupPage() {
+
+
+    const router = useRouter()
+
+    const [nickname, setNickname] = useState("")
+    const [email, setEmail] = useState("")
+    const [password, setPassword] = useState("")
+    const [passwordConfirm, setPasswordConfirm] = useState("")
 
     return (
 
@@ -18,34 +29,110 @@ export default function SignupPage() {
 
                     <input
                         placeholder="이름"
+                        value={nickname}
+                        onChange={(e) =>
+                            setNickname(
+                                e.target.value
+                            )
+                        }
                         className="border p-3 rounded"
                     />
 
                     <input
                         type="email"
                         placeholder="이메일"
+                        value={email}
+                        onChange={(e) =>
+                            setEmail(
+                                e.target.value
+                            )
+                        }
                         className="border p-3 rounded"
                     />
 
                     <input
                         type="password"
                         placeholder="비밀번호"
+                        value={password}
+                        onChange={(e) =>
+                            setPassword(
+                                e.target.value
+                            )
+                        }
                         className="border p-3 rounded"
                     />
 
                     <input
                         type="password"
                         placeholder="비밀번호 확인"
+                        value={passwordConfirm}
+                        onChange={(e) =>
+                            setPasswordConfirm(
+                                e.target.value
+                            )
+                        }
                         className="border p-3 rounded"
                     />
 
                     <button
+
+                        onClick={async () => {
+
+                            if (
+                                password !==
+                                passwordConfirm
+                            ) {
+
+                                alert(
+                                    "비밀번호가 다릅니다."
+                                )
+
+                                return
+                            }
+
+                            try {
+
+                                const res =
+                                    await axios.post(
+
+                                        "http://localhost:8000/signup",
+
+                                        {
+
+                                            email,
+
+                                            password,
+
+                                            nickname
+
+                                        }
+
+                                    )
+
+                                alert(
+                                    "회원가입 완료"
+                                )
+
+                                router.push(
+                                    "/login"
+                                )
+
+                            } catch {
+
+                                alert(
+                                    "회원가입 실패"
+                                )
+
+                            }
+
+                        }}
+
                         className="
-                            bg-blue-500
-                            text-white
-                            p-3
-                            rounded
-                        "
+        bg-blue-500
+        text-white
+        p-3
+        rounded
+    "
                     >
                         회원가입
                     </button>

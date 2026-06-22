@@ -31,7 +31,7 @@ export default function MapPage() {
     // 2. 백엔드에서 route 가져오기
     useEffect(() => {
         axios
-            .get("http://127.0.0.1:8000/route-test")
+            .get("http://localhost:8000/route-test")
             .then((res) => {
 
                 setPolyline(res.data.polyline)

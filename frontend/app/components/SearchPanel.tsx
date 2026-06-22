@@ -113,7 +113,7 @@ export default function SearchPanel() {
 
             const res =
                 await axios.get(
-                    "http://127.0.0.1:8000/places",
+                    "http://localhost:8000/places",
                     {
                         params: {
                             query
@@ -170,7 +170,7 @@ export default function SearchPanel() {
 
             const res =
                 await axios.get(
-                    "http://127.0.0.1:8000/route",
+                    "http://localhost:8000/route",
                     {
                         params: {
                             origin,
@@ -235,7 +235,7 @@ export default function SearchPanel() {
 
             const res =
                 await axios.get(
-                    "http://127.0.0.1:8000/nearby",
+                    "http://localhost:8000/nearby",
                     {
                         params: {
 
@@ -272,7 +272,7 @@ export default function SearchPanel() {
 
         const res =
             await axios.get(
-                "http://127.0.0.1:8000/place-detail",
+                "http://localhost:8000/place-detail",
                 {
                     params: {
                         place_id:
@@ -1277,7 +1277,7 @@ export default function SearchPanel() {
                                                             }
                                                             await axios.post(
 
-                                                                "http://127.0.0.1:8000/schedule",
+                                                                "http://localhost:8000/schedule",
 
                                                                 newPlace
 

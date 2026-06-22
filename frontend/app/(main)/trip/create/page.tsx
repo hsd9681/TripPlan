@@ -75,7 +75,7 @@ export default function TripCreatePage() {
 
                             const res =
                                 await axios.post(
-                                    "http://127.0.0.1:8000/trip",
+                                    "http://localhost:8000/trip",
                                     {
 
                                         title:

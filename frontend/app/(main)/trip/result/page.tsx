@@ -16,7 +16,7 @@ export default function TripResultPage() {
         axios
 
             .get(
-                "http://127.0.0.1:8000/trip"
+                "http://localhost:8000/trip"
             )
 
             .then((res) => {

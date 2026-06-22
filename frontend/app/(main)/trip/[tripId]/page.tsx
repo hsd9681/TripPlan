@@ -169,6 +169,29 @@ export default function TripDetailPage() {
 
     }
 
+
+    useEffect(() => {
+
+    axios.get(
+
+        "http://localhost:8000/me",
+
+        {
+
+            withCredentials: true
+
+        }
+
+    )
+
+    .then((res) => {
+
+        console.log(res.data)
+
+    })
+
+}, [])
+
     const calculateTime = (
         items: any[],
         index: number
@@ -212,7 +235,7 @@ export default function TripDetailPage() {
 
         await axios.delete(
 
-            `http://127.0.0.1:8000/schedule/${place.id}`
+            `http://localhost:8000/schedule/${place.id}`
 
         )
 
@@ -284,7 +307,7 @@ export default function TripDetailPage() {
 
         await axios.put(
 
-            "http://127.0.0.1:8000/schedule/order",
+            "http://localhost:8000/schedule/order",
 
             daySchedule.map(
 
@@ -349,7 +372,7 @@ export default function TripDetailPage() {
 
         await axios.put(
 
-            "http://127.0.0.1:8000/schedule/order",
+            "http://localhost:8000/schedule/order",
 
             copied.map(
 
@@ -379,7 +402,7 @@ export default function TripDetailPage() {
         axios
 
             .get(
-                `http://127.0.0.1:8000/schedule/${tripId}`
+                `http://localhost:8000/schedule/${tripId}`
             )
 
             .then((res) => {
