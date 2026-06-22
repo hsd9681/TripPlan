@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import axios from "axios"
+import api from "../../lib/api"
 
 export default function PlaceSearchPage() {
 
@@ -12,8 +12,8 @@ export default function PlaceSearchPage() {
 
         try {
 
-            const res = await axios.get(
-                "http://localhost:8000/places",
+            const res = await api.get(
+                "places",
                 {
                     params: {
                         query

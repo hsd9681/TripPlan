@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import axios from "axios"
+import api from "../../../lib/api"
 
 export default function TripResultPage() {
 
@@ -13,14 +13,9 @@ export default function TripResultPage() {
 
     useEffect(() => {
 
-        axios.get(
+        api.get(
 
-            "http://localhost:8000/trip",
-
-            {
-                withCredentials: true
-            }
-
+            "trip"
         )
 
             .then((res) => {

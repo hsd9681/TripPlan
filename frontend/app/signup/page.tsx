@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import axios from "axios"
+import api from "../lib/api"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 
@@ -93,9 +93,9 @@ export default function SignupPage() {
                             try {
 
                                 const res =
-                                    await axios.post(
+                                    await api.post(
 
-                                        "http://localhost:8000/signup",
+                                        "signup",
 
                                         {
 

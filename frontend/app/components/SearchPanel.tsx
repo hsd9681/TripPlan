@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import axios from "axios"
+import api from "../lib/api"
 import { useParams } from "next/navigation"
 
 import { GoogleMap, Polyline, Marker, useJsApiLoader, InfoWindow } from "@react-google-maps/api"
@@ -112,8 +112,8 @@ export default function SearchPanel() {
         try {
 
             const res =
-                await axios.get(
-                    "http://localhost:8000/places",
+                await api.get(
+                    "places",
                     {
                         params: {
                             query
@@ -169,8 +169,8 @@ export default function SearchPanel() {
         try {
 
             const res =
-                await axios.get(
-                    "http://localhost:8000/route",
+                await api.get(
+                    "route",
                     {
                         params: {
                             origin,
@@ -234,8 +234,8 @@ export default function SearchPanel() {
         try {
 
             const res =
-                await axios.get(
-                    "http://localhost:8000/nearby",
+                await api.get(
+                    "nearby",
                     {
                         params: {
 
@@ -271,8 +271,8 @@ export default function SearchPanel() {
     ) => {
 
         const res =
-            await axios.get(
-                "http://localhost:8000/place-detail",
+            await api.get(
+                "place-detail",
                 {
                     params: {
                         place_id:
@@ -1275,9 +1275,9 @@ export default function SearchPanel() {
                                                                     selectedPlace.geometry.location.lng
 
                                                             }
-                                                            await axios.post(
+                                                            await api.post(
 
-                                                                "http://localhost:8000/schedule",
+                                                                "schedule",
 
                                                                 newPlace
 

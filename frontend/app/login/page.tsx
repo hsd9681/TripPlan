@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import axios from "axios"
+import api from "../lib/api"
 
 
 import Link from "next/link"
@@ -127,9 +127,9 @@ export default function LoginPage() {
 
                             try {
 
-                                const res = await axios.post(
+                                const res = api.post(
 
-                                    "http://localhost:8000/login",
+                                    "login",
 
                                     {
 
@@ -137,18 +137,8 @@ export default function LoginPage() {
 
                                         password
 
-                                    },
-
-                                    {
-
-                                        withCredentials: true
-
                                     }
 
-                                )
-
-                                console.log(
-                                    res.data
                                 )
 
                                 alert(
