@@ -13,13 +13,18 @@ export default function TripResultPage() {
 
     useEffect(() => {
 
-        axios
+        axios.get(
 
-            .get(
-                "http://localhost:8000/trip"
-            )
+            "http://localhost:8000/trip",
+
+            {
+                withCredentials: true
+            }
+
+        )
 
             .then((res) => {
+                console.log(res.data)
 
                 setTrips(
                     res.data

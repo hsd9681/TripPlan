@@ -10,6 +10,7 @@ from sqlalchemy import (
 from sqlalchemy.sql import func
 
 from database import Base
+from sqlalchemy import ForeignKey
 
 
 class Trip(Base):
@@ -35,7 +36,8 @@ class Trip(Base):
 
     user_id = Column(
         BigInteger,
-        nullable=True
+        ForeignKey("users.id"),
+        nullable=False
     )
 
     created_at = Column(

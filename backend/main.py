@@ -43,14 +43,13 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(
 
 def get_current_user(
 
-    request: Request,
+        request: Request,
 
-    db: Session = Depends(
-        get_db
-    )
+        db: Session = Depends(
+            get_db
+        )
 
 ):
-
     print(
         "COOKIES =",
         request.cookies
@@ -68,7 +67,6 @@ def get_current_user(
     )
 
     if not token:
-
         return None
 
     try:
@@ -123,6 +121,7 @@ def get_current_user(
 
         return None
 
+
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 app = FastAPI()
@@ -143,9 +142,9 @@ app.add_middleware(
 
 )
 
+
 @app.get("/places")
 def places(query: str):
-
     url = (
         "https://maps.googleapis.com/maps/api/place/textsearch/json"
     )
@@ -159,12 +158,12 @@ def places(query: str):
 
     return response.json()
 
+
 @app.get("/route")
 def route(
-    origin: str,
-    destination: str
+        origin: str,
+        destination: str
 ):
-
     url = (
         "https://maps.googleapis.com/maps/api/directions/json"
     )
@@ -203,13 +202,14 @@ def route(
             leg["end_location"]
 
     }
+
+
 @app.get("/nearby")
 def nearby(
-    lat: float,
-    lng: float,
-    category: str
+        lat: float,
+        lng: float,
+        category: str
 ):
-
     category_map = {
 
         "맛집": "restaurant",
@@ -259,9 +259,9 @@ def nearby(
 
     return response.json()
 
+
 @app.get("/place-detail")
 def place_detail(place_id: str):
-
     url = (
         "https://maps.googleapis.com/maps/api/place/details/json"
     )
@@ -278,17 +278,24 @@ def place_detail(place_id: str):
     )
 
     return response.json()
+
+
 @app.post("/trip")
 def create_trip(
 
+
     trip: dict,
+
+
+    current_user: User = Depends(
+        get_current_user
+    ),
 
     db: Session = Depends(
         get_db
     )
 
 ):
-
     new_trip = Trip(
 
         title=trip.get(
@@ -313,7 +320,8 @@ def create_trip(
 
         people=trip.get(
             "people"
-        )
+        ),
+        user_id = current_user.id
 
     )
 
@@ -334,32 +342,50 @@ def create_trip(
 
     }
 
+
 @app.get("/trip")
 def get_trip_list(
+
+    current_user: User = Depends(
+        get_current_user
+    ),
 
     db: Session = Depends(
         get_db
     )
 
 ):
+    if not current_user:
+        return {
+            "message": "unauthorized"
+        }
 
-    trips = db.query(
-        Trip
-    ).all()
+    trips = (
+
+        db.query(Trip)
+
+        .filter(
+            Trip.user_id
+            == current_user.id
+        )
+
+        .all()
+
+    )
 
     return trips
+
 
 @app.get("/trip/{trip_id}")
 def get_trip(
 
-    trip_id: int,
+        trip_id: int,
 
-    db: Session = Depends(
-        get_db
-    )
+        db: Session = Depends(
+            get_db
+        )
 
 ):
-
     trip = (
 
         db.query(Trip)
@@ -375,17 +401,17 @@ def get_trip(
 
     return trip
 
+
 @app.post("/schedule")
 def create_schedule(
 
-    item: dict,
+        item: dict,
 
-    db: Session = Depends(
-        get_db
-    )
+        db: Session = Depends(
+            get_db
+        )
 
 ):
-
     schedule = Schedule(
 
         trip_id=item.get(
@@ -451,17 +477,17 @@ def create_schedule(
 
     }
 
+
 @app.get("/schedule/{trip_id}")
 def get_schedule(
 
-    trip_id: int,
+        trip_id: int,
 
-    db: Session = Depends(
-        get_db
-    )
+        db: Session = Depends(
+            get_db
+        )
 
 ):
-
     schedules = (
 
         db.query(
@@ -484,17 +510,17 @@ def get_schedule(
 
     return schedules
 
+
 @app.delete("/schedule/{schedule_id}")
 def delete_schedule(
 
-    schedule_id: int,
+        schedule_id: int,
 
-    db: Session = Depends(
-        get_db
-    )
+        db: Session = Depends(
+            get_db
+        )
 
 ):
-
     schedule = (
 
         db.query(
@@ -511,7 +537,6 @@ def delete_schedule(
     )
 
     if not schedule:
-
         return {
 
             "message":
@@ -532,17 +557,17 @@ def delete_schedule(
 
     }
 
+
 @app.put("/schedule/order")
 def update_schedule_order(
 
-    items: list = Body(...),
+        items: list = Body(...),
 
-    db: Session = Depends(
-        get_db
-    )
+        db: Session = Depends(
+            get_db
+        )
 
 ):
-
     for item in items:
 
         schedule = (
@@ -561,7 +586,6 @@ def update_schedule_order(
         )
 
         if schedule:
-
             schedule.order_no = (
                 item["order_no"]
             )
@@ -573,17 +597,17 @@ def update_schedule_order(
             "updated"
     }
 
+
 @app.post("/signup")
 def signup(
 
-    user: dict,
+        user: dict,
 
-    db: Session = Depends(
-        get_db
-    )
+        db: Session = Depends(
+            get_db
+        )
 
 ):
-
     exists = (
 
         db.query(User)
@@ -598,7 +622,6 @@ def signup(
     )
 
     if exists:
-
         return {
 
             "message":
@@ -633,19 +656,19 @@ def signup(
 
     }
 
+
 @app.post("/login")
 def login(
 
-    user: dict,
+        user: dict,
 
-    response: Response,
+        response: Response,
 
-    db: Session = Depends(
-        get_db
-    )
+        db: Session = Depends(
+            get_db
+        )
 
 ):
-
     db_user = (
 
         db.query(User)
@@ -660,7 +683,6 @@ def login(
     )
 
     if not db_user:
-
         return {
 
             "message":
@@ -670,11 +692,10 @@ def login(
 
     if (
 
-        db_user.password
-        != user["password"]
+            db_user.password
+            != user["password"]
 
     ):
-
         return {
 
             "message":
@@ -720,20 +741,20 @@ def login(
 
     }
 
-def create_access_token(
-    user_id: int
-):
 
+def create_access_token(
+        user_id: int
+):
     expire = (
 
-        datetime.utcnow()
+            datetime.utcnow()
 
-        + timedelta(
+            + timedelta(
 
-            minutes=
-            ACCESS_TOKEN_EXPIRE_MINUTES
+        minutes=
+        ACCESS_TOKEN_EXPIRE_MINUTES
 
-        )
+    )
 
     )
 
@@ -760,17 +781,16 @@ def create_access_token(
 
     return token
 
+
 @app.get("/me")
 def me(
 
-    user: User = Depends(
-        get_current_user
-    )
+        user: User = Depends(
+            get_current_user
+        )
 
 ):
-
     if not user:
-
         return {
 
             "message":
