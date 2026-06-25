@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 
 import { useParams } from "next/navigation"
-import axios from "axios"
+import api from "../../../lib/api"
 
 import {
     useTrip
@@ -172,15 +172,9 @@ export default function TripDetailPage() {
 
     useEffect(() => {
 
-    axios.get(
+    api.get(
 
-        "http://localhost:8000/me",
-
-        {
-
-            withCredentials: true
-
-        }
+        "me",
 
     )
 
@@ -233,9 +227,9 @@ export default function TripDetailPage() {
             selectedDay
             ][index]
 
-        await axios.delete(
+        await api.delete(
 
-            `http://localhost:8000/schedule/${place.id}`
+            `schedule/${place.id}`
 
         )
 
@@ -305,9 +299,9 @@ export default function TripDetailPage() {
         )
 
 
-        await axios.put(
+        await api.put(
 
-            "http://localhost:8000/schedule/order",
+            "schedule/order",
 
             daySchedule.map(
 
@@ -370,9 +364,9 @@ export default function TripDetailPage() {
             updatedSchedule
         )
 
-        await axios.put(
+        await api.put(
 
-            "http://localhost:8000/schedule/order",
+            "schedule/order",
 
             copied.map(
 
@@ -399,10 +393,9 @@ export default function TripDetailPage() {
             
 
 
-        axios
-
+        api
             .get(
-                `http://localhost:8000/schedule/${tripId}`
+                `schedule/${tripId}`
             )
 
             .then((res) => {

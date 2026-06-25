@@ -3,6 +3,11 @@
 import Link from "next/link"
 
 import SearchPanel from "../components/SearchPanel"
+import api from "../lib/api"
+import { useRouter } from "next/navigation"
+
+
+
 
 import {
   useSearchPanel,
@@ -18,6 +23,8 @@ export default function MainLayout({
     isOpen,
     setIsOpen
   } = useSearchPanel()
+
+  const router = useRouter()
 
   return (
 
@@ -151,19 +158,38 @@ export default function MainLayout({
                 bg-gray-300
               "
             />
+            <div className="flex-1">
+              <div className="flex items-center gap-12">
 
-            <div>
+                <p className="font-medium">
+                  김여행
+                </p>
+                <button
 
-              <p className="font-medium">
-                김여행
-              </p>
+                  onClick={async () => {
 
+                    await api.post(
+                      "/logout"
+                    )
+
+                    router.push(
+                      "/login"
+                    )
+
+                  }}
+
+                className="text-xs text-gray-400 hover:text-gray-600 underline cursor-pointer" >
+
+                  로그아웃
+
+                </button>
+              </div>
               <p className="text-sm text-blue-500">
                 Pro B1
               </p>
 
-            </div>
 
+            </div>
           </div>
 
         </div>

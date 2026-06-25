@@ -379,13 +379,25 @@ def get_trip_list(
 @app.get("/trip/{trip_id}")
 def get_trip(
 
-        trip_id: int,
+    trip_id: int,
 
-        db: Session = Depends(
-            get_db
-        )
+    current_user: User = Depends(
+        get_current_user
+    ),
+
+    db: Session = Depends(
+        get_db
+    )
 
 ):
+
+    if not current_user:
+
+        return {
+            "message":
+                "unauthorized"
+        }
+
     trip = (
 
         db.query(Trip)
@@ -398,6 +410,29 @@ def get_trip(
         .first()
 
     )
+
+    print("CURRENT USER =", current_user.id)
+    print("TRIP USER =", trip.user_id)
+    print("TRIP ID =", trip.id)
+
+    if not trip:
+
+        return {
+            "message":
+                "trip not found"
+        }
+
+    if (
+
+        trip.user_id
+        != current_user.id
+
+    ):
+
+        return {
+            "message":
+                "forbidden"
+        }
 
     return trip
 
@@ -481,13 +516,57 @@ def create_schedule(
 @app.get("/schedule/{trip_id}")
 def get_schedule(
 
-        trip_id: int,
+    trip_id: int,
 
-        db: Session = Depends(
-            get_db
-        )
+    current_user: User = Depends(
+        get_current_user
+    ),
+
+    db: Session = Depends(
+        get_db
+    )
 
 ):
+
+    if not current_user:
+
+        return {
+            "message":
+                "unauthorized"
+        }
+
+    trip = (
+
+        db.query(Trip)
+
+        .filter(
+            Trip.id ==
+            trip_id
+        )
+
+        .first()
+
+    )
+
+    if not trip:
+
+        return {
+            "message":
+                "trip not found"
+        }
+
+    if (
+
+        trip.user_id
+        != current_user.id
+
+    ):
+
+        return {
+            "message":
+                "forbidden"
+        }
+
     schedules = (
 
         db.query(
@@ -808,5 +887,25 @@ def me(
 
         "nickname":
             user.nickname
+
+    }
+
+@app.post("/logout")
+def logout(
+
+    response: Response
+
+):
+
+    response.delete_cookie(
+
+        key="access_token"
+
+    )
+
+    return {
+
+        "message":
+            "logout success"
 
     }
