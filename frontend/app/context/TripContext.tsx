@@ -32,6 +32,11 @@ export function TripProvider({
         setSchedule
     ] = useState<any>({})
 
+    const [
+        editingIndex,
+        setEditingIndex
+    ] = useState<number | null>(null)
+
     return (
 
         <TripContext.Provider
@@ -45,7 +50,10 @@ export function TripProvider({
                 setScheduleMode,
 
                 schedule,
-                setSchedule
+                setSchedule,
+
+                editingIndex,
+                setEditingIndex
 
             }}
 

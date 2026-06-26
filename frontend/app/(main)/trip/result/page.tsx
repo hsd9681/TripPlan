@@ -13,16 +13,28 @@ export default function TripResultPage() {
 
     useEffect(() => {
 
-        api.get(
+        api.get("/me")
 
-            "trip"
-        )
+            .then(() => {
+
+                return api.get(
+                    "/trip"
+                )
+
+            })
 
             .then((res) => {
-                console.log(res.data)
 
                 setTrips(
                     res.data
+                )
+
+            })
+
+            .catch(() => {
+
+                router.push(
+                    "/login"
                 )
 
             })
@@ -132,6 +144,7 @@ export default function TripResultPage() {
                                 key={trip.id}
 
                                 className="
+                                relative
                         bg-white
                         rounded-3xl
                         overflow-hidden
@@ -157,6 +170,81 @@ export default function TripResultPage() {
                         "
 
                                 />
+                                <button
+
+                                    className="
+        absolute
+        top-4
+        right-4
+        w-9
+        h-9
+        rounded-full
+        bg-black/50
+        text-white
+        text-xl
+        font-bold
+        flex
+        items-center
+        justify-center
+        hover:bg-red-500
+        transition
+    "
+
+                                    onClick={async (e) => {
+
+                                        e.stopPropagation()
+
+                                        if (
+
+                                            !confirm(
+                                                "정말 삭제하시겠습니까?"
+                                            )
+
+                                        ) return
+
+                                        try {
+
+                                            await api.delete(
+
+                                                `/trip/${trip.id}`
+
+                                            )
+
+                                            setTrips(
+
+                                                trips.filter(
+
+                                                    (t: any) =>
+
+                                                        t.id !== trip.id
+
+                                                )
+
+                                            )
+
+                                            alert(
+                                                "삭제되었습니다."
+                                            )
+
+                                        }
+
+                                        catch (err) {
+
+                                            console.error(err)
+
+                                            alert(
+                                                "삭제에 실패했습니다."
+                                            )
+
+                                        }
+
+                                    }}
+
+                                >
+
+                                    ×
+
+                                </button>
 
                                 <div className="p-6">
 

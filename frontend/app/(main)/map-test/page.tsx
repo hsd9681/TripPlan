@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import axios from "axios"
+import api from "../../lib/api"
 
 import {
     GoogleMap,
@@ -30,8 +30,8 @@ export default function MapPage() {
 
     // 2. 백엔드에서 route 가져오기
     useEffect(() => {
-        axios
-            .get("http://localhost:8000/route-test")
+        api
+            .get("route-test")
             .then((res) => {
 
                 setPolyline(res.data.polyline)

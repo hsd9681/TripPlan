@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 
 import { useParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 import api from "../../../lib/api"
 
 import {
@@ -56,6 +57,8 @@ export default function TripDetailPage() {
                 .NEXT_PUBLIC_GOOGLE_MAP_KEY!
 
     })
+
+    const router = useRouter()
 
     const createRoute = (
         day: number
@@ -172,19 +175,19 @@ export default function TripDetailPage() {
 
     useEffect(() => {
 
-    api.get(
+        api.get(
 
-        "me",
+            "me",
 
-    )
+        )
 
-    .then((res) => {
+            .then((res) => {
 
-        console.log(res.data)
+                console.log(schedule)
 
-    })
+            })
 
-}, [])
+    }, [])
 
     const calculateTime = (
         items: any[],
@@ -390,7 +393,7 @@ export default function TripDetailPage() {
 
     useEffect(() => {
 
-            
+
 
 
         api
@@ -399,10 +402,42 @@ export default function TripDetailPage() {
             )
 
             .then((res) => {
+
                 console.log(
-        "DB 응답",
-        res.data
-    )
+                    "DB 응답",
+                    res.data
+                )
+
+                if (
+
+                    res.data.message ===
+                    "unauthorized"
+
+                ) {
+
+                    router.push(
+                        "/login"
+                    )
+
+                    return
+
+                }
+
+                if (
+
+                    res.data.message ===
+                    "forbidden"
+
+                ) {
+
+                    router.push(
+                        "/trip/result"
+                    )
+
+                    return
+
+                }
+
                 const grouped: any = {}
 
                 res.data.forEach(
@@ -436,7 +471,10 @@ export default function TripDetailPage() {
         setSelectedDay:
         setScheduleDay,
 
-        setScheduleMode
+        setScheduleMode,
+
+        editingIndex,
+        setEditingIndex
 
     } = useTrip()
 
@@ -475,10 +513,6 @@ export default function TripDetailPage() {
         activeBudgetTab,
         setActiveBudgetTab
     ] = useState("walking")
-
-
-
-
 
     return (
 
@@ -884,48 +918,83 @@ export default function TripDetailPage() {
                                                     </div>
                                                     <div
                                                         className="
-            ml-auto
+        ml-auto
         flex
         flex-col
         items-end
         gap-2
         self-start
-        "
+    "
                                                     >
 
-                                                        <button
+                                                        {/* 수정 + 삭제 */}
 
-                                                            onClick={() =>
-                                                                removePlace(
-                                                                    index
-                                                                )
-                                                            }
-
+                                                        <div
                                                             className="
-                text-red-500
-        text-xl
-        leading-none
-            "
-
+            flex
+            gap-2
+        "
                                                         >
 
-                                                            X
+                                                            <button
 
-                                                        </button>
+                                                                onClick={() => {
+
+                                                                    setEditingIndex(index)
+
+                                                                    setScheduleDay(
+                                                                        selectedDay
+                                                                    )
+
+                                                                    openPanel()
+
+                                                                }}
+
+                                                                className="
+        text-blue-500
+        text-lg
+    "
+
+                                                            >
+
+                                                                ✏
+
+                                                            </button>
+
+                                                            <button
+
+                                                                onClick={() =>
+                                                                    removePlace(index)
+                                                                }
+
+                                                                className="
+                text-red-500
+                text-xl
+                leading-none
+            "
+
+                                                            >
+
+                                                                X
+
+                                                            </button>
+
+                                                        </div>
+
+                                                        {/* 위 */}
+
                                                         <button
 
                                                             onClick={() =>
-                                                                moveUp(
-                                                                    index
-                                                                )
+                                                                moveUp(index)
                                                             }
 
                                                             className="
-                w-8
-        h-8
-        border
-        rounded-lg
-            "
+            w-8
+            h-8
+            border
+            rounded-lg
+        "
 
                                                         >
 
@@ -933,28 +1002,26 @@ export default function TripDetailPage() {
 
                                                         </button>
 
+                                                        {/* 아래 */}
+
                                                         <button
 
                                                             onClick={() =>
-                                                                moveDown(
-                                                                    index
-                                                                )
+                                                                moveDown(index)
                                                             }
 
                                                             className="
-                px-3
-                py-1
-                border
-                rounded-lg
-            "
+            px-3
+            py-1
+            border
+            rounded-lg
+        "
 
                                                         >
 
                                                             ↓
 
                                                         </button>
-
-
 
                                                     </div>
 

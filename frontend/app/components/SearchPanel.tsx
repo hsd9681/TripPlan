@@ -35,7 +35,10 @@ export default function SearchPanel() {
         scheduleMode,
 
         schedule,
-        setSchedule
+        setSchedule,
+
+        editingIndex,
+        setEditingIndex
 
     } = useTrip()
 
@@ -1204,20 +1207,17 @@ export default function SearchPanel() {
 
                                                 <div
                                                     className="
-                        mt-8
-                        flex
-                        gap-3
-                    "
+        mt-8
+        flex
+        gap-3
+    "
                                                 >
 
                                                     <button
 
                                                         onClick={async () => {
 
-                                                            if (
-                                                                !scheduleMode ||
-                                                                !selectedDay
-                                                            ) {
+                                                            if (selectedDay === null) {
 
                                                                 alert(
                                                                     "DAY를 먼저 선택해주세요."
@@ -1275,55 +1275,112 @@ export default function SearchPanel() {
                                                                     selectedPlace.geometry.location.lng
 
                                                             }
-                                                            await api.post(
 
-                                                                "schedule",
-
-                                                                newPlace
-
-                                                            )
                                                             const updatedSchedule = {
                                                                 ...schedule
                                                             }
 
                                                             updatedSchedule[selectedDay] ??= []
 
-                                                            updatedSchedule[selectedDay].push(
-                                                                newPlace
-                                                            )
+                                                            if (editingIndex !== null) {
 
-                                                            setSchedule(
-                                                                updatedSchedule
-                                                            )
+                                                                // 수정
 
-                                                            alert(
-                                                                `DAY ${selectedDay}에 추가되었습니다`
-                                                            )
+                                                                await api.put(
+
+                                                                    `schedule/${updatedSchedule[selectedDay][editingIndex].id}`,
+
+                                                                    newPlace
+
+                                                                )
+
+                                                                updatedSchedule[selectedDay][editingIndex] = {
+
+                                                                    ...updatedSchedule[selectedDay][editingIndex],
+
+                                                                    ...newPlace
+
+                                                                }
+
+                                                                setSchedule(
+                                                                    updatedSchedule
+                                                                )
+
+                                                                setEditingIndex(
+                                                                    null
+                                                                )
+
+                                                                setSelectedPlace(
+                                                                    null
+                                                                )
+
+                                                                alert(
+                                                                    "일정이 수정되었습니다."
+                                                                )
+
+                                                            } else {
+
+                                                                // 추가
+
+                                                                const res = await api.post(
+
+                                                                    "schedule",
+
+                                                                    newPlace
+
+                                                                )
+
+                                                                updatedSchedule[selectedDay].push(
+                                                                    res.data
+                                                                )
+
+                                                                setSchedule(
+                                                                    updatedSchedule
+                                                                )
+
+                                                                setSelectedPlace(
+                                                                    null
+                                                                )
+
+                                                                alert(
+                                                                    `DAY ${selectedDay}에 추가되었습니다.`
+                                                                )
+
+                                                            }
 
                                                         }}
 
                                                         className="
-        flex-1
-        bg-blue-500
-        text-white
-        py-3
-        rounded-xl
-    "
+            flex-1
+            bg-blue-500
+            text-white
+            py-3
+            rounded-xl
+        "
 
                                                     >
 
-                                                        일정 추가
+                                                        {
+
+                                                            editingIndex !== null
+
+                                                                ? "일정 수정"
+
+                                                                : "일정 추가"
+
+                                                        }
 
                                                     </button>
 
                                                     <button
 
                                                         className="
-                            flex-1
-                            border
-                            py-3
-                            rounded-xl
-                        "
+            flex-1
+            border
+            py-3
+            rounded-xl
+        "
+
                                                     >
 
                                                         길찾기

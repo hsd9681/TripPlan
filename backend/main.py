@@ -909,3 +909,143 @@ def logout(
             "logout success"
 
     }
+
+@app.delete("/trip/{trip_id}")
+def delete_trip(
+
+    trip_id: int,
+
+    current_user: User = Depends(
+        get_current_user
+    ),
+
+    db: Session = Depends(
+        get_db
+    )
+
+):
+
+
+    if not current_user:
+
+        return {
+
+            "message":
+                "unauthorized"
+
+        }
+
+
+    trip = (
+
+        db.query(Trip)
+
+        .filter(
+            Trip.id == trip_id
+        )
+
+        .first()
+
+    )
+
+
+    if not trip:
+
+        return {
+
+            "message":
+                "trip not found"
+
+        }
+
+
+    if trip.user_id != current_user.id:
+
+        return {
+
+            "message":
+                "forbidden"
+
+        }
+
+
+    db.query(Schedule).filter(
+
+        Schedule.trip_id == trip_id
+
+    ).delete()
+
+
+    db.delete(trip)
+    db.commit()
+
+    return {
+
+        "message":
+            "trip deleted"
+
+    }
+
+@app.put("/schedule/{schedule_id}")
+def update_schedule(
+
+    schedule_id: int,
+
+    data: dict,
+
+    current_user: User = Depends(get_current_user),
+
+    db: Session = Depends(get_db)
+
+):
+
+    schedule = (
+
+        db.query(Schedule)
+
+        .filter(
+            Schedule.id == schedule_id
+        )
+
+        .first()
+
+    )
+
+    if not schedule:
+
+        return {
+            "message": "schedule not found"
+        }
+
+    trip = (
+
+        db.query(Trip)
+
+        .filter(
+            Trip.id == schedule.trip_id
+        )
+
+        .first()
+
+    )
+
+    if trip.user_id != current_user.id:
+
+        return {
+            "message": "forbidden"
+        }
+
+    schedule.place_id = data["place_id"]
+    schedule.name = data["name"]
+    schedule.category = data["category"]
+    schedule.photo = data["photo"]
+    schedule.rating = data["rating"]
+    schedule.address = data["address"]
+    schedule.duration = data["duration"]
+    schedule.lat = data["lat"]
+    schedule.lng = data["lng"]
+
+    db.commit()
+    db.refresh(schedule)
+
+    return schedule
