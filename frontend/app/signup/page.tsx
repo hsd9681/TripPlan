@@ -83,7 +83,7 @@ export default function SignupPage() {
                                 passwordConfirm
                             ) {
 
-                                alert(
+                                toast.success(
                                     "비밀번호가 다릅니다."
                                 )
 
@@ -109,7 +109,7 @@ export default function SignupPage() {
 
                                     )
 
-                                alert(
+                                toast.success(
                                     "회원가입 완료"
                                 )
 
@@ -119,7 +119,7 @@ export default function SignupPage() {
 
                             } catch {
 
-                                alert(
+                                toast.success(
                                     "회원가입 실패"
                                 )
 

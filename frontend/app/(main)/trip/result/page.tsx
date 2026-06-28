@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import api from "../../../lib/api"
+import { toast } from "react-hot-toast"
 
 export default function TripResultPage() {
 
@@ -221,8 +222,9 @@ export default function TripResultPage() {
                                                 )
 
                                             )
-
-                                            alert(
+                                            console.log("toast 호출");
+                                            alert("테스트");
+                                            toast.success(
                                                 "삭제되었습니다."
                                             )
 
@@ -232,7 +234,7 @@ export default function TripResultPage() {
 
                                             console.error(err)
 
-                                            alert(
+                                            toast.success(
                                                 "삭제에 실패했습니다."
                                             )
 

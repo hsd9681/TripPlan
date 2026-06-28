@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import api from "../../../lib/api"
+import { toast } from "react-hot-toast"
 
 export default function TripCreatePage() {
     const router = useRouter()
@@ -107,7 +108,7 @@ export default function TripCreatePage() {
 
                             console.error(err)
 
-                            alert(
+                            toast.success(
                                 "여행 생성 실패"
                             )
 

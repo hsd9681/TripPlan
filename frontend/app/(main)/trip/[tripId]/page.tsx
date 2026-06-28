@@ -27,6 +27,7 @@ import {
     InfoWindow
 
 } from "@react-google-maps/api"
+import { toast } from "react-hot-toast"
 
 
 export default function TripDetailPage() {
@@ -252,6 +253,7 @@ export default function TripDetailPage() {
         setSchedule(
             updatedSchedule
         )
+        toast.success("일정이 삭제되었습니다.")
 
     }
 
@@ -323,6 +325,7 @@ export default function TripDetailPage() {
             )
 
         )
+        toast.success("일정 순서가 변경되었습니다.")
 
     }
     const moveDown = async (
@@ -388,7 +391,7 @@ export default function TripDetailPage() {
             )
 
         )
-
+        toast.success("일정 순서가 변경되었습니다.")
     }
 
     useEffect(() => {

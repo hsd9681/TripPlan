@@ -141,7 +141,7 @@ export default function LoginPage() {
 
                                 )
 
-                                alert(
+                                toast.success(
                                     "로그인 성공"
                                 )
 
@@ -153,7 +153,7 @@ export default function LoginPage() {
 
                                 console.error(err)
 
-                                alert(
+                                toast.success(
                                     "로그인 실패"
                                 )
 

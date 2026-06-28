@@ -504,13 +504,9 @@ def create_schedule(
     db.commit()
 
     db.refresh(schedule)
+    return schedule
 
-    return {
 
-        "id":
-            schedule.id
-
-    }
 
 
 @app.get("/schedule/{trip_id}")

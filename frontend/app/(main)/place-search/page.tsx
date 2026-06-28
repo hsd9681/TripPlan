@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import api from "../../lib/api"
-
+import toast from "react-hot-toast"
 export default function PlaceSearchPage() {
 
     const [query, setQuery] = useState("")
@@ -106,7 +106,7 @@ export default function PlaceSearchPage() {
                                                 JSON.stringify(saved)
                                             )
 
-                                            alert(
+                                            toast.success(
                                                 `${place.name} → DAY${day} 추가 완료`
                                             )
 

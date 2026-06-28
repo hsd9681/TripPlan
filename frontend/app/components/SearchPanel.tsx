@@ -16,6 +16,7 @@ import {
     useTrip
 }
     from "../context/TripContext"
+import { toast } from "react-hot-toast"
 
 export default function SearchPanel() {
 
@@ -1219,7 +1220,7 @@ export default function SearchPanel() {
 
                                                             if (selectedDay === null) {
 
-                                                                alert(
+                                                                toast.success(
                                                                     "DAY를 먼저 선택해주세요."
                                                                 )
 
@@ -1314,7 +1315,7 @@ export default function SearchPanel() {
                                                                     null
                                                                 )
 
-                                                                alert(
+                                                                toast.success(
                                                                     "일정이 수정되었습니다."
                                                                 )
 
@@ -1329,20 +1330,26 @@ export default function SearchPanel() {
                                                                     newPlace
 
                                                                 )
+                                                                console.log("DB에서 받은 데이터", res.data)
+                                                                setSchedule({
 
-                                                                updatedSchedule[selectedDay].push(
-                                                                    res.data
-                                                                )
+                                                                    ...schedule,
 
-                                                                setSchedule(
-                                                                    updatedSchedule
-                                                                )
+                                                                    [selectedDay]: [
+
+                                                                        ...(schedule[selectedDay] || []),
+
+                                                                        res.data
+
+                                                                    ]
+
+                                                                })
 
                                                                 setSelectedPlace(
                                                                     null
                                                                 )
 
-                                                                alert(
+                                                                toast.success(
                                                                     `DAY ${selectedDay}에 추가되었습니다.`
                                                                 )
 
