@@ -5,13 +5,14 @@ import Link from "next/link"
 import SearchPanel from "../components/SearchPanel"
 import api from "../lib/api"
 import { useRouter } from "next/navigation"
-
+import { useTrip } from "../context/TripContext"
 
 
 
 import {
   useSearchPanel,
 } from "../context/SearchPanelContext"
+import { useEffect } from "react"
 
 export default function MainLayout({
   children,
@@ -25,6 +26,29 @@ export default function MainLayout({
   } = useSearchPanel()
 
   const router = useRouter()
+  const { user, setUser } = useTrip()
+
+  useEffect(() => {
+
+    const loadUser = async () => {
+
+      try {
+
+        const res = await api.get("/me")
+
+        setUser(res.data)
+
+      } catch {
+
+        router.push("/login")
+
+      }
+
+    }
+
+    loadUser()
+
+  }, [])
 
   return (
 
@@ -162,7 +186,7 @@ export default function MainLayout({
               <div className="flex items-center gap-12">
 
                 <p className="font-medium">
-                  김여행
+                  {user?.nickname || "로딩중..."}
                 </p>
                 <button
 
@@ -178,7 +202,7 @@ export default function MainLayout({
 
                   }}
 
-                className="text-xs text-gray-400 hover:text-gray-600 underline cursor-pointer" >
+                  className="text-xs text-gray-400 hover:text-gray-600 underline cursor-pointer" >
 
                   로그아웃
 

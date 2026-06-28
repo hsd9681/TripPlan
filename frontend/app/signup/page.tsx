@@ -4,6 +4,7 @@ import Link from "next/link"
 import api from "../lib/api"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { toast } from "react-hot-toast"
 
 export default function SignupPage() {
 

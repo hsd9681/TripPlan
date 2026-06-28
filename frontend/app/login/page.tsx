@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import api from "../lib/api"
-
+import { toast } from "react-hot-toast"
 
 import Link from "next/link"
 import {
@@ -19,9 +19,13 @@ import {
     SiKakaotalk
 } from "react-icons/si"
 
+import { useTrip } from "../context/TripContext"
+
 export default function LoginPage() {
 
     const router = useRouter()
+
+    const { setUser } = useTrip()
 
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
@@ -88,10 +92,10 @@ export default function LoginPage() {
                             setEmail(e.target.value)
                         }
                         className="
-        border
-        rounded-xl
-        p-3
-    "
+                            border
+                            rounded-xl
+                            p-3
+                        "
                     />
 
                     <input
@@ -102,10 +106,10 @@ export default function LoginPage() {
                             setPassword(e.target.value)
                         }
                         className="
-        border
-        rounded-xl
-        p-3
-    "
+                            border
+                            rounded-xl
+                            p-3
+                        "
                     />
 
                     <label
@@ -127,47 +131,40 @@ export default function LoginPage() {
 
                             try {
 
-                                const res = api.post(
-
+                                // 로그인
+                                await api.post(
                                     "login",
-
                                     {
-
                                         email,
-
                                         password
-
                                     }
-
                                 )
 
-                                toast.success(
-                                    "로그인 성공"
-                                )
+                                // 로그인한 사용자 정보 가져오기
+                                const me = await api.get("me")
+
+                                // Context 저장
+                                setUser(me.data)
+
+                                toast.success("로그인 성공")
 
                                 router.push("/")
 
-                            }
+                            } catch {
 
-                            catch (err) {
-
-                                console.error(err)
-
-                                toast.success(
-                                    "로그인 실패"
-                                )
+                                toast.error("로그인 실패")
 
                             }
 
                         }}
 
                         className="
-        bg-blue-600
-        text-white
-        p-3
-        rounded-xl
-        font-semibold
-    "
+                            bg-blue-600
+                            text-white
+                            p-3
+                            rounded-xl
+                            font-semibold
+                        "
                     >
 
                         로그인
@@ -291,4 +288,5 @@ export default function LoginPage() {
         </main>
 
     )
+
 }

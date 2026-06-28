@@ -32,6 +32,15 @@ export function TripProvider({
         setSchedule
     ] = useState<any>({})
 
+
+    type User = {
+    id: number
+    nickname: string
+    email: string
+}
+
+    const [user, setUser] = useState<User | null>(null)
+
     const [
         editingIndex,
         setEditingIndex
@@ -53,7 +62,10 @@ export function TripProvider({
                 setSchedule,
 
                 editingIndex,
-                setEditingIndex
+                setEditingIndex,
+
+                user,
+                setUser
 
             }}
 

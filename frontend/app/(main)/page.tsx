@@ -1,10 +1,10 @@
 "use client"
 
 import Link from "next/link"
+import { useTrip } from "../context/TripContext"
 
 export default function HomePage() {
-    
-
+    const { user } = useTrip()
 
 
 
@@ -20,7 +20,7 @@ export default function HomePage() {
                     <div>
 
                         <h1 className="text-3xl font-bold">
-                            안녕하세요, 김여행님 👋
+                            안녕하세요, {user?.nickname || "여행자"}님 👋
                         </h1>
 
                         <p className="text-gray-500 mt-1">
