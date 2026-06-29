@@ -375,6 +375,34 @@ def get_trip_list(
 
     return trips
 
+@app.get("/trip/latest")
+def latest_trip(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    trip = (
+
+        db.query(Trip)
+
+        .filter(
+            Trip.user_id == current_user.id
+        )
+
+        .order_by(
+            Trip.id.desc()
+        )
+
+        .first()
+
+    )
+
+    if not trip:
+
+        return {}
+
+    return trip
+
+
 
 @app.get("/trip/{trip_id}")
 def get_trip(

@@ -26,27 +26,43 @@ export default function MainLayout({
   } = useSearchPanel()
 
   const router = useRouter()
-  const { user, setUser } = useTrip()
+  const { user, setUser, setCurrentTrip } = useTrip()
 
   useEffect(() => {
 
-    const loadUser = async () => {
+    const loadData = async () => {
 
       try {
 
-        const res = await api.get("/me")
+        // 로그인 확인
+        const me = await api.get("/me")
 
-        setUser(res.data)
+        setUser(me.data)
 
       } catch {
 
         router.push("/login")
+        return
+
+      }
+
+      try {
+
+        // 최근 여행
+        const latest = await api.get("/trip/latest")
+
+        setCurrentTrip(latest.data)
+
+      } catch {
+
+        // 여행이 없으면 null
+        setCurrentTrip(null)
 
       }
 
     }
 
-    loadUser()
+    loadData()
 
   }, [])
 

@@ -4,12 +4,33 @@ import Link from "next/link"
 import { useTrip } from "../context/TripContext"
 
 export default function HomePage() {
-    const { user } = useTrip()
+    const { user, currentTrip } = useTrip()
 
+    const calculateDday = () => {
 
+        if (!currentTrip) return "-"
+
+        const today = new Date()
+
+        const start = new Date(currentTrip.start_date)
+
+        const diff =
+
+            Math.ceil(
+
+                (start.getTime() - today.getTime())
+
+                / (1000 * 60 * 60 * 24)
+
+            )
+
+        return diff
+
+    }
 
     return (
-
+        console.log("user =", user) ,
+    console.log("currentTrip =", currentTrip),
         <main className="p-8">
 
             <div className="max-w-6xl mx-auto">
@@ -58,11 +79,15 @@ export default function HomePage() {
                         <div>
 
                             <h2 className="font-bold text-2xl">
-                                도쿄 4박 5일
+                                {currentTrip?.title || "여행이 없습니다"}
                             </h2>
 
                             <p className="text-gray-500 mt-1">
-                                2025.07.20 ~ 2025.07.24
+                                {
+                                    currentTrip
+                                        ? `${currentTrip.start_date} ~ ${currentTrip.end_date}`
+                                        : "-"
+                                }
                             </p>
 
                         </div>
@@ -77,7 +102,7 @@ export default function HomePage() {
                                 h-fit
                             "
                         >
-                            D-8
+                            D-{calculateDday()}
                         </div>
 
                     </div>
@@ -112,7 +137,11 @@ export default function HomePage() {
                     <div className="grid grid-cols-2 gap-3 mt-6">
 
                         <Link
-                            href="/trip/result"
+                            href={
+                                currentTrip
+                                    ? `/trip/${currentTrip.id}`
+                                    : "#"
+                            }
                             className="
                                 bg-white
                                 text-center
@@ -125,7 +154,11 @@ export default function HomePage() {
                         </Link>
 
                         <Link
-                            href="/trip/create"
+                            href={
+                                currentTrip
+                                    ? `/trip/${currentTrip.id}`
+                                    : "#"
+                            }
                             className="
                                 bg-white
                                 text-center

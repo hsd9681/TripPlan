@@ -46,6 +46,8 @@ export function TripProvider({
         setEditingIndex
     ] = useState<number | null>(null)
 
+    const [currentTrip, setCurrentTrip] =useState<any>(null)
+
     return (
 
         <TripContext.Provider
@@ -65,7 +67,10 @@ export function TripProvider({
                 setEditingIndex,
 
                 user,
-                setUser
+                setUser,
+
+                currentTrip,
+                setCurrentTrip
 
             }}
 

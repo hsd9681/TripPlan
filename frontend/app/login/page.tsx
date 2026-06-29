@@ -25,7 +25,7 @@ export default function LoginPage() {
 
     const router = useRouter()
 
-    const { setUser } = useTrip()
+    const { setUser, setCurrentTrip } = useTrip()
 
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
@@ -139,12 +139,6 @@ export default function LoginPage() {
                                         password
                                     }
                                 )
-
-                                // 로그인한 사용자 정보 가져오기
-                                const me = await api.get("me")
-
-                                // Context 저장
-                                setUser(me.data)
 
                                 toast.success("로그인 성공")
 
