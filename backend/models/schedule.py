@@ -74,6 +74,12 @@ class Schedule(Base):
         Text
     )
 
+    cost = Column(
+        Integer,
+        default=0,
+        nullable=True
+    )
+
     created_at = Column(
         TIMESTAMP,
         server_default=func.now()

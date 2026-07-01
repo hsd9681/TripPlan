@@ -34,6 +34,11 @@ class Trip(Base):
 
     people = Column(Integer)
 
+    budget = Column(
+        BigInteger,
+        default=0,
+        nullable=True
+    )
 
     user_id = Column(
         BigInteger,

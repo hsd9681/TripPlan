@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import api from "../../../lib/api"
 import { useTrip } from "../../../context/TripContext"
@@ -19,20 +19,29 @@ export default function TripDetailPage() {
     const tripId = Number(params.tripId)
     const router = useRouter()
 
-    // 우측 패널 탭: 일정 / 예산 / 메모
     const [rightTab, setRightTab] = useState<"schedule" | "budget" | "memo">("schedule")
-
     const [selectedDay, setSelectedDay] = useState(1)
     const [directions, setDirections] = useState<any>(null)
     const [selectedMarker, setSelectedMarker] = useState<any>(null)
 
-    // 예산 탭 상태
-    const [totalBudget, setTotalBudget] = useState(1500000)
-    const [budgetInput, setBudgetInput] = useState("1500000")
-    const [trip, setTrip] = useState<any>(null)
+    const [tripInfo, setTripInfo] = useState<any>(null)
+    const totalDays = tripInfo
+        ? Math.floor(
+              (new Date(tripInfo.end_date).getTime() - new Date(tripInfo.start_date).getTime()) /
+                  (1000 * 60 * 60 * 24)
+          ) + 1
+        : 5
 
-    // 메모 탭 상태 (일자별 로컬 메모, 추후 백엔드 연동 가능)
+    const [totalBudget, setTotalBudget] = useState(0)
+    const [budgetInput, setBudgetInput] = useState("0")
+    const [budgetSaving, setBudgetSaving] = useState(false)
+
+    const [costInputs, setCostInputs] = useState<{ [id: number]: string }>({})
+    const [costSaving, setCostSaving] = useState<{ [id: number]: boolean }>({})
+
     const [memos, setMemos] = useState<{ [day: number]: string }>({})
+    const [memoSaving, setMemoSaving] = useState(false)
+    const memoTimerRef = useRef<{ [day: number]: ReturnType<typeof setTimeout> }>({})
 
     const { isLoaded } = useJsApiLoader({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY!,
@@ -43,7 +52,6 @@ export default function TripDetailPage() {
         setSchedule,
         setSelectedDay: setScheduleDay,
         setScheduleMode,
-        editingIndex,
         setEditingIndex,
         setCurrentTrip,
     } = useTrip()
@@ -55,234 +63,210 @@ export default function TripDetailPage() {
         setCurrentTrip(res.data)
     }
 
+    useEffect(() => {
+        api.get(`/trip/${tripId}`).then((res) => {
+            if (res.data.message === "unauthorized") { router.push("/login"); return }
+            if (res.data.message === "forbidden") { router.push("/trip/result"); return }
+            setTripInfo(res.data)
+            const b = res.data.budget ?? 0
+            setTotalBudget(b)
+            setBudgetInput(String(b))
+        })
+
+        api.get(`/schedule/${tripId}`).then((res) => {
+            if (res.data.message === "unauthorized") { router.push("/login"); return }
+            if (res.data.message === "forbidden") { router.push("/trip/result"); return }
+
+            const grouped: any = {}
+            res.data.forEach((item: any) => {
+                if (item.name === "__memo__") return
+                grouped[item.day_number] ??= []
+                grouped[item.day_number].push(item)
+            })
+            setSchedule(grouped)
+
+            const initCosts: { [id: number]: string } = {}
+            res.data.forEach((item: any) => {
+                if (item.name !== "__memo__") {
+                    initCosts[item.id] = String(item.cost ?? 0)
+                }
+            })
+            setCostInputs(initCosts)
+        })
+    }, [tripId])
+
+    useEffect(() => {
+        if (rightTab !== "memo") return
+        if (memos[selectedDay] !== undefined) return
+        api.get(`/trip/${tripId}/day-memo/${selectedDay}`).then((res) => {
+            setMemos((prev) => ({ ...prev, [selectedDay]: res.data.memo ?? "" }))
+        })
+    }, [rightTab, selectedDay])
+
     const createRoute = (day: number) => {
         const places = schedule[day] || []
-
-        if (places.length < 2) {
-            setDirections(null)
-            return
-        }
+        if (places.length < 2) { setDirections(null); return }
 
         const origin = { lat: places[0].lat, lng: places[0].lng }
-        const destination = {
-            lat: places[places.length - 1].lat,
-            lng: places[places.length - 1].lng,
-        }
-        const waypoints = places.slice(1, places.length - 1).map((place: any) => ({
-            location: { lat: place.lat, lng: place.lng },
+        const destination = { lat: places[places.length - 1].lat, lng: places[places.length - 1].lng }
+        const waypoints = places.slice(1, places.length - 1).map((p: any) => ({
+            location: { lat: p.lat, lng: p.lng },
             stopover: true,
         }))
 
-        const directionsService = new google.maps.DirectionsService()
-
-        directionsService
-            .route({
-                origin,
-                destination,
-                waypoints,
-                optimizeWaypoints: false,
-                travelMode: google.maps.TravelMode.WALKING,
-            })
-            .then((result) => {
-                setDirections(result)
-            })
+        new google.maps.DirectionsService()
+            .route({ origin, destination, waypoints, optimizeWaypoints: false, travelMode: google.maps.TravelMode.WALKING })
+            .then((result) => setDirections(result))
+            .catch(() => setDirections(null))
     }
 
-    useEffect(() => {
-        api.get("me").then((res) => {
-            console.log(schedule)
-        })
-    }, [])
+    useEffect(() => { createRoute(selectedDay) }, [selectedDay, schedule])
 
     const calculateTime = (items: any[], index: number) => {
         let minutes = 9 * 60
-        for (let i = 0; i < index; i++) {
-            minutes += items[i].duration
-        }
-        const hour = Math.floor(minutes / 60)
-        const minute = minutes % 60
-        return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
+        for (let i = 0; i < index; i++) minutes += items[i].duration
+        return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`
+    }
+
+    const calculateEndTime = (items: any[], index: number) => {
+        let minutes = 9 * 60
+        for (let i = 0; i <= index; i++) minutes += items[i].duration
+        return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`
     }
 
     const removePlace = async (index: number) => {
         const place = schedule[selectedDay][index]
-        await api.delete(`schedule/${place.id}`)
-
-        const updatedSchedule = { ...schedule }
-        updatedSchedule[selectedDay] = updatedSchedule[selectedDay].filter(
-            (_: any, i: number) => i !== index
-        )
-
-        setSchedule(updatedSchedule)
+        await api.delete(`/schedule/${place.id}`)
+        const updated = { ...schedule }
+        updated[selectedDay] = updated[selectedDay].filter((_: any, i: number) => i !== index)
+        setSchedule(updated)
         toast.success("일정이 삭제되었습니다.")
         await refreshTrip()
     }
 
     const moveUp = async (index: number) => {
         if (index === 0) return
-
-        const updatedSchedule = { ...schedule }
-        const daySchedule = [...updatedSchedule[selectedDay]]
-            ;[daySchedule[index - 1], daySchedule[index]] = [
-                daySchedule[index],
-                daySchedule[index - 1],
-            ]
-
-        updatedSchedule[selectedDay] = daySchedule
-        setSchedule(updatedSchedule)
-
-        await api.put(
-            "schedule/order",
-            daySchedule.map((item: any, idx: number) => ({ id: item.id, order_no: idx + 1 }))
-        )
-        toast.success("일정 순서가 변경되었습니다.")
+        const updated = { ...schedule }
+        const day = [...updated[selectedDay]]
+        ;[day[index - 1], day[index]] = [day[index], day[index - 1]]
+        updated[selectedDay] = day
+        setSchedule(updated)
+        await api.put("/schedule/order", day.map((item: any, idx: number) => ({ id: item.id, order_no: idx + 1 })))
+        toast.success("순서가 변경되었습니다.")
         await refreshTrip()
     }
 
     const moveDown = async (index: number) => {
-        const daySchedule = schedule[selectedDay] || []
-        if (index === daySchedule.length - 1) return
-
-        const updatedSchedule = { ...schedule }
-        const copied = [...daySchedule]
-            ;[copied[index], copied[index + 1]] = [copied[index + 1], copied[index]]
-
-        updatedSchedule[selectedDay] = copied
-        setSchedule(updatedSchedule)
-
-        await api.put(
-            "schedule/order",
-            copied.map((item: any, idx: number) => ({ id: item.id, order_no: idx + 1 }))
-        )
-        toast.success("일정 순서가 변경되었습니다.")
+        const day = schedule[selectedDay] || []
+        if (index === day.length - 1) return
+        const updated = { ...schedule }
+        const copied = [...day]
+        ;[copied[index], copied[index + 1]] = [copied[index + 1], copied[index]]
+        updated[selectedDay] = copied
+        setSchedule(updated)
+        await api.put("/schedule/order", copied.map((item: any, idx: number) => ({ id: item.id, order_no: idx + 1 })))
+        toast.success("순서가 변경되었습니다.")
         await refreshTrip()
     }
-    useEffect(() => {
 
-    api
-        .get(`trip/${tripId}`)
-        .then((res) => {
+    const saveBudget = async () => {
+        const parsed = Number(budgetInput.replace(/[^0-9]/g, ""))
+        if (isNaN(parsed)) { toast.error("올바른 금액을 입력해주세요."); return }
+        setBudgetSaving(true)
+        try {
+            await api.put(`/trip/${tripId}/budget`, { budget: parsed })
+            setTotalBudget(parsed)
+            toast.success("예산이 저장되었습니다.")
+        } catch {
+            toast.error("저장에 실패했습니다.")
+        } finally {
+            setBudgetSaving(false)
+        }
+    }
 
-            setTrip(res.data)
+    const saveCost = async (scheduleId: number) => {
+        const parsed = Number((costInputs[scheduleId] ?? "0").replace(/[^0-9]/g, ""))
+        setCostSaving((prev) => ({ ...prev, [scheduleId]: true }))
+        try {
+            await api.put(`/schedule/${scheduleId}/cost`, { cost: parsed })
+            const updated = { ...schedule }
+            updated[selectedDay] = updated[selectedDay].map((p: any) =>
+                p.id === scheduleId ? { ...p, cost: parsed } : p
+            )
+            setSchedule(updated)
+            toast.success("비용이 저장되었습니다.")
+        } catch {
+            toast.error("저장에 실패했습니다.")
+        } finally {
+            setCostSaving((prev) => ({ ...prev, [scheduleId]: false }))
+        }
+    }
 
-        })
-
-}, [tripId])
-
-    useEffect(() => {
-        api.get(`schedule/${tripId}`).then((res) => {
-            console.log("DB 응답", res.data)
-
-            if (res.data.message === "unauthorized") {
-                router.push("/login")
-                return
+    const handleMemoChange = (day: number, text: string) => {
+        setMemos((prev) => ({ ...prev, [day]: text }))
+        if (memoTimerRef.current[day]) clearTimeout(memoTimerRef.current[day])
+        memoTimerRef.current[day] = setTimeout(async () => {
+            setMemoSaving(true)
+            try {
+                await api.put(`/trip/${tripId}/day-memo`, { day_number: day, memo: text })
+                toast.success("메모가 저장되었습니다.")
+            } catch {
+                toast.error("메모 저장에 실패했습니다.")
+            } finally {
+                setMemoSaving(false)
             }
+        }, 1000)
+    }
 
-            if (res.data.message === "forbidden") {
-                router.push("/trip/result")
-                return
-            }
+    const dayPlaces = (schedule[selectedDay] || []) as any[]
+    const allPlaces = Object.values(schedule).flat() as any[]
+    const totalUsed = allPlaces.reduce((sum: number, p: any) => sum + (p.cost ?? 0), 0)
+    const remaining = totalBudget - totalUsed
+    const progress = totalBudget > 0 ? Math.min(100, Math.round((totalUsed / totalBudget) * 100)) : 0
+    const dayUsed = dayPlaces.reduce((sum: number, p: any) => sum + (p.cost ?? 0), 0)
 
-            const grouped: any = {}
-            res.data.forEach((item: any) => {
-                grouped[item.day_number] ??= []
-                grouped[item.day_number].push(item)
-            })
-
-            setSchedule(grouped)
-        })
-    }, [tripId])
-
-    // 지도는 항상 표시되므로 selectedDay/schedule이 바뀔 때마다 경로 갱신
-    useEffect(() => {
-        createRoute(selectedDay)
-    }, [selectedDay, schedule])
-
-    const dayPlaces = schedule[selectedDay] || []
-
-    // 경로 요약 (총 거리/시간) - directions가 있을 때만 계산
     let totalDistanceKm: number | null = null
     let totalDurationMin: number | null = null
     if (directions?.routes?.[0]?.legs) {
         const legs = directions.routes[0].legs
-        totalDistanceKm = legs.reduce((sum: number, leg: any) => sum + leg.distance.value, 0) / 1000
-        totalDurationMin = Math.round(
-            legs.reduce((sum: number, leg: any) => sum + leg.duration.value, 0) / 60
-        )
-    }
-
-    const formatWon = (n: number) => `¥${n.toLocaleString()}`
-
-    const estimatedTotal = dayPlaces.reduce((sum: number, p: any) => sum + (p.cost || 0), 0)
-    const remaining = totalBudget - estimatedTotal
-    const progress =
-        totalBudget > 0 ? Math.min(100, Math.round((estimatedTotal / totalBudget) * 100)) : 0
-
-    const saveBudget = () => {
-        const parsed = Number(budgetInput.replace(/[^0-9]/g, ""))
-        if (!parsed) {
-            toast.error("올바른 예산 금액을 입력해주세요.")
-            return
-        }
-        setTotalBudget(parsed)
-        toast.success("예산이 저장되었습니다.")
+        totalDistanceKm = legs.reduce((s: number, l: any) => s + l.distance.value, 0) / 1000
+        totalDurationMin = Math.round(legs.reduce((s: number, l: any) => s + l.duration.value, 0) / 60)
     }
 
     return (
-        <main className="max-w-7xl mx-auto p-8">
-            <div className="bg-white border border-[#ECEEF2] rounded-3xl p-6 md:p-8">
+        <main className="max-w-7xl mx-auto p-6">
+            <div className="bg-white border border-[#ECEEF2] rounded-3xl p-6">
 
-                {/* 상단 헤더 */}
+                {/* 헤더 */}
                 <div className="flex items-center justify-between border-b border-[#ECEEF2] pb-4 mb-6">
                     <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => router.back()}
-                            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-600 text-xl"
-                            aria-label="뒤로가기"
-                        >
-                            ‹
-                        </button>
-
-                        <h1 className="text-2xl font-bold">{trip?.title}</h1>
-
-                        <button
-                            className="text-gray-400 hover:text-gray-600"
-                            onClick={() => toast("여행 이름 수정은 준비 중입니다.")}
-                            aria-label="여행 이름 수정"
-                        >
-                            ✎
-                        </button>
+                        <button onClick={() => router.back()} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-600 text-xl">‹</button>
+                        <div>
+                            <h1 className="text-2xl font-bold">{tripInfo?.title ?? "여행 상세"}</h1>
+                            {tripInfo && (
+                                <p className="text-sm text-gray-400 mt-0.5">
+                                    {tripInfo.start_date} ~ {tripInfo.end_date} · 성인 {tripInfo.people}명
+                                </p>
+                            )}
+                        </div>
+                        <button onClick={() => toast("여행 이름 수정은 준비 중입니다.")} className="text-gray-400 hover:text-gray-600 text-lg">✎</button>
                     </div>
-
                     <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => toast("공유 기능은 준비 중입니다.")}
-                            className="px-4 py-2 rounded-xl border border-[#ECEEF2] font-medium text-gray-700 hover:bg-gray-50"
-                        >
-                            공유
-                        </button>
-                        <button
-                            onClick={() => toast("삭제 기능은 준비 중입니다.")}
-                            className="px-4 py-2 rounded-xl border border-[#ECEEF2] font-medium text-red-500 hover:bg-red-50"
-                        >
-                            삭제
-                        </button>
+                        <button onClick={() => toast("공유 기능은 준비 중입니다.")} className="px-4 py-2 rounded-xl border border-[#ECEEF2] font-medium text-gray-700 hover:bg-gray-50">공유</button>
+                        <button onClick={() => toast("삭제 기능은 준비 중입니다.")} className="px-4 py-2 rounded-xl border border-[#ECEEF2] font-medium text-red-500 hover:bg-red-50">삭제</button>
                     </div>
                 </div>
 
-                {/* 본문: DAY 사이드바 | 지도+일정 | 우측 패널 */}
-                <div className="flex gap-6 items-start">
+                <div className="flex gap-5 items-start">
 
                     {/* DAY 사이드바 */}
-                    <div className="w-[140px] flex-shrink-0 border border-[#ECEEF2] rounded-2xl p-3 h-fit">
-                        {[1, 2, 3, 4, 5].map((day) => (
+                    <div className="w-[130px] flex-shrink-0 border border-[#ECEEF2] rounded-2xl p-2.5">
+                        {Array.from({ length: totalDays }, (_, i) => i + 1).map((day) => (
                             <button
                                 key={day}
                                 onClick={() => setSelectedDay(day)}
-                                className={`w-full p-3 mb-2 rounded-xl text-left font-semibold transition ${
-                                    selectedDay === day
-                                        ? "bg-blue-500 text-white"
-                                        : "border border-[#ECEEF2] bg-white text-gray-700 hover:bg-gray-50"
+                                className={`w-full p-3 mb-1.5 rounded-xl text-left font-semibold text-sm transition last:mb-0 ${
+                                    selectedDay === day ? "bg-blue-500 text-white" : "border border-[#ECEEF2] bg-white text-gray-700 hover:bg-gray-50"
                                 }`}
                             >
                                 DAY {day}
@@ -290,230 +274,109 @@ export default function TripDetailPage() {
                         ))}
                     </div>
 
-                    {/* 가운데: 지도 + 일정 리스트 */}
+                    {/* 가운데: 지도 + 일정 */}
                     <div className="flex-1 min-w-0 flex flex-col gap-4">
 
                         {/* 지도 */}
-                        <div className="border border-[#ECEEF2] rounded-2xl overflow-hidden">
+                        <div className="border border-[#ECEEF2] rounded-2xl overflow-hidden relative">
                             {isLoaded && (
-                                <GoogleMap
-                                    mapContainerStyle={{ width: "100%", height: "420px" }}
-                                    zoom={13}
-                                    center={{ lat: 35.6764, lng: 139.65 }}
-                                >
-                                    {directions && (
-                                        <DirectionsRenderer
-                                            directions={directions}
-                                            options={{ suppressMarkers: true }}
-                                        />
-                                    )}
-
+                                <GoogleMap mapContainerStyle={{ width: "100%", height: "400px" }} zoom={13} center={{ lat: 35.6764, lng: 139.65 }}>
+                                    {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: true }} />}
                                     {dayPlaces.map((place: any, index: number) => (
-                                        <Marker
-                                            key={index}
-                                            position={{ lat: place.lat, lng: place.lng }}
-                                            onClick={() => setSelectedMarker(place)}
-                                        />
+                                        <Marker key={index} position={{ lat: place.lat, lng: place.lng }} onClick={() => setSelectedMarker(place)} />
                                     ))}
-
                                     {selectedMarker && (
-                                        <InfoWindow
-                                            position={{ lat: selectedMarker.lat, lng: selectedMarker.lng }}
-                                            onCloseClick={() => setSelectedMarker(null)}
-                                        >
+                                        <InfoWindow position={{ lat: selectedMarker.lat, lng: selectedMarker.lng }} onCloseClick={() => setSelectedMarker(null)}>
                                             <div className="w-[200px]">
                                                 {selectedMarker.photo && (
-                                                    <img
-                                                        src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${selectedMarker.photo}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY}`}
-                                                        alt={selectedMarker.name}
-                                                        className="w-full h-28 object-cover rounded-lg mb-2"
-                                                    />
+                                                    <img src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${selectedMarker.photo}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY}`} alt={selectedMarker.name} className="w-full h-28 object-cover rounded-lg mb-2" />
                                                 )}
-                                                <div className="font-bold text-lg">{selectedMarker.name}</div>
+                                                <div className="font-bold">{selectedMarker.name}</div>
                                                 <div className="text-sm text-gray-500">{selectedMarker.category}</div>
-                                                {selectedMarker.rating && (
-                                                    <div className="text-sm text-yellow-500 mt-1">
-                                                        ★ {selectedMarker.rating}
-                                                    </div>
-                                                )}
+                                                {selectedMarker.rating && <div className="text-sm text-yellow-500 mt-1">★ {selectedMarker.rating}</div>}
                                             </div>
                                         </InfoWindow>
                                     )}
                                 </GoogleMap>
                             )}
-                        </div>
-
-                        {/* 경로 다시 그리기 */}
-                        <div className="flex justify-end -mt-2">
-                            <button
-                                onClick={() => createRoute(selectedDay)}
-                                className="flex items-center gap-1 text-sm text-gray-600 border border-[#ECEEF2] bg-white rounded-full px-4 py-1.5 hover:bg-gray-50"
-                            >
+                            <button onClick={() => createRoute(selectedDay)} className="absolute bottom-3 right-3 flex items-center gap-1 text-sm text-gray-600 border border-[#ECEEF2] bg-white rounded-full px-3 py-1.5 hover:bg-gray-50 shadow-sm">
                                 ↻ 경로 다시 그리기
                             </button>
                         </div>
 
                         {/* 일정 리스트 */}
-                        <div className="border border-[#ECEEF2] rounded-2xl p-6">
+                        <div className="border border-[#ECEEF2] rounded-2xl p-5">
                             <div className="flex items-baseline justify-between mb-4 flex-wrap gap-2">
-                                <h2 className="text-xl font-bold">DAY {selectedDay}</h2>
+                                <h2 className="text-lg font-bold">DAY {selectedDay}</h2>
                                 {totalDistanceKm !== null && totalDurationMin !== null && (
-                                    <div className="text-sm text-gray-500">
-                                        도보 {totalDistanceKm.toFixed(2)}km · 예상 소요시간{" "}
-                                        {Math.floor(totalDurationMin / 60)}시간 {totalDurationMin % 60}분
-                                    </div>
+                                    <span className="text-sm text-gray-400">도보 {totalDistanceKm.toFixed(2)}km · 예상 {Math.floor(totalDurationMin / 60)}시간 {totalDurationMin % 60}분</span>
                                 )}
                             </div>
-
-                            <div className="space-y-1">
+                            <div className="space-y-0">
                                 {dayPlaces.map((place: any, index: number) => (
-                                    <div
-                                        key={index}
-                                        className="flex items-center gap-3 py-3 border-b border-[#F1F2F5] last:border-b-0"
-                                    >
-                                        {/* 드래그 핸들 (시각용) */}
-                                        <span className="text-gray-300 select-none">⋮⋮</span>
-
-                                        {/* 순번 배지 */}
-                                        <span className="w-6 h-6 flex-shrink-0 rounded-full bg-orange-400 text-white text-xs font-bold flex items-center justify-center">
-                                            {index + 1}
-                                        </span>
-
+                                    <div key={place.id} className="flex items-center gap-3 py-3 border-b border-[#F1F2F5] last:border-b-0">
+                                        <span className="text-gray-300 select-none text-xs">⋮⋮</span>
+                                        <span className="w-6 h-6 flex-shrink-0 rounded-full bg-orange-400 text-white text-xs font-bold flex items-center justify-center">{index + 1}</span>
                                         {place.photo && (
-                                            <img
-                                                src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${place.photo}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY}`}
-                                                alt={place.name}
-                                                className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
-                                            />
+                                            <img src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${place.photo}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY}`} alt={place.name} className="w-11 h-11 rounded-lg object-cover flex-shrink-0" />
                                         )}
-
                                         <div className="flex-1 min-w-0">
-                                            <div className="font-semibold truncate">{place.name}</div>
+                                            <div className="font-semibold text-sm truncate">{place.name}</div>
                                             <div className="text-xs text-gray-400">{place.category}</div>
                                         </div>
-
-                                        <div className="text-sm text-gray-600 w-[110px] flex-shrink-0 text-right">
-                                            {calculateTime(dayPlaces, index)} ~{" "}
-                                            {(() => {
-                                                let m = 9 * 60
-                                                for (let i = 0; i <= index; i++) m += dayPlaces[i].duration
-                                                return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(
-                                                    m % 60
-                                                ).padStart(2, "0")}`
-                                            })()}
+                                        <div className="text-xs text-gray-500 flex-shrink-0">
+                                            {calculateTime(dayPlaces, index)} ~ {calculateEndTime(dayPlaces, index)}
                                         </div>
-
                                         <div className="flex items-center gap-1 flex-shrink-0">
-                                            <button
-                                                onClick={() => {
-                                                    setEditingIndex(index)
-                                                    setScheduleDay(selectedDay)
-                                                    openPanel()
-                                                }}
-                                                className="w-8 h-8 flex items-center justify-center rounded-lg text-blue-500 hover:bg-blue-50"
-                                                aria-label="일정 수정"
-                                            >
-                                                ✏
-                                            </button>
-                                            <button
-                                                onClick={() => moveUp(index)}
-                                                className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100"
-                                                aria-label="위로 이동"
-                                            >
-                                                ↑
-                                            </button>
-                                            <button
-                                                onClick={() => moveDown(index)}
-                                                className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100"
-                                                aria-label="아래로 이동"
-                                            >
-                                                ↓
-                                            </button>
-                                            <button
-                                                onClick={() => removePlace(index)}
-                                                className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500"
-                                                aria-label="일정 삭제"
-                                            >
-                                                🗑
-                                            </button>
+                                            <button onClick={() => { setEditingIndex(index); setScheduleDay(selectedDay); openPanel() }} className="w-7 h-7 flex items-center justify-center rounded-lg text-blue-400 hover:bg-blue-50 text-sm">✏</button>
+                                            <button onClick={() => moveUp(index)} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 text-sm">↑</button>
+                                            <button onClick={() => moveDown(index)} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 text-sm">↓</button>
+                                            <button onClick={() => removePlace(index)} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-400 text-sm">🗑</button>
                                         </div>
                                     </div>
                                 ))}
                             </div>
-
-                            <button
-                                onClick={() => {
-                                    setScheduleDay(selectedDay)
-                                    setScheduleMode(true)
-                                    openPanel()
-                                }}
-                                className="w-full mt-4 border border-[#ECEEF2] rounded-xl py-3 text-blue-500 font-semibold hover:bg-blue-50"
-                            >
+                            <button onClick={() => { setScheduleDay(selectedDay); setScheduleMode(true); openPanel() }} className="w-full mt-4 border border-[#ECEEF2] rounded-xl py-3 text-blue-500 font-semibold hover:bg-blue-50 text-sm">
                                 + 장소 추가
                             </button>
                         </div>
                     </div>
 
                     {/* 우측 패널 */}
-                    <div className="w-[380px] flex-shrink-0 border border-[#ECEEF2] rounded-2xl p-5">
-
-                        {/* 탭 */}
+                    <div className="w-[400px] flex-shrink-0 border border-[#ECEEF2] rounded-2xl p-5">
                         <div className="flex border-b border-[#ECEEF2] mb-5">
-                            {([
-                                { key: "schedule", label: "일정" },
-                                { key: "budget", label: "예산" },
-                                { key: "memo", label: "메모" },
-                            ] as const).map((tab) => (
-                                <button
-                                    key={tab.key}
-                                    onClick={() => setRightTab(tab.key)}
-                                    className={`flex-1 pb-3 font-semibold transition border-b-2 ${
-                                        rightTab === tab.key
-                                            ? "text-blue-600 border-blue-600"
-                                            : "text-gray-400 border-transparent"
-                                    }`}
-                                >
-                                    {tab.label}
+                            {(["schedule", "budget", "memo"] as const).map((tab) => (
+                                <button key={tab} onClick={() => setRightTab(tab)} className={`flex-1 pb-3 text-sm font-semibold transition border-b-2 ${rightTab === tab ? "text-blue-600 border-blue-600" : "text-gray-400 border-transparent"}`}>
+                                    {tab === "schedule" ? "일정" : tab === "budget" ? "예산" : "메모"}
                                 </button>
                             ))}
                         </div>
 
-                        {/* 일정 탭: 해당 일자 요약 */}
+                        {/* 일정 탭 */}
                         {rightTab === "schedule" && (
                             <div className="space-y-4">
-                                <div className="text-sm text-gray-500">DAY {selectedDay} 요약</div>
+                                <div className="text-sm text-gray-500 font-medium">DAY {selectedDay} 요약</div>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div className="border border-[#ECEEF2] rounded-xl p-4">
-                                        <div className="text-xs text-gray-500">방문 장소</div>
+                                    <div className="border border-[#ECEEF2] rounded-xl p-3">
+                                        <div className="text-xs text-gray-400">방문 장소</div>
                                         <div className="text-xl font-bold mt-1">{dayPlaces.length}곳</div>
                                     </div>
-                                    <div className="border border-[#ECEEF2] rounded-xl p-4">
-                                        <div className="text-xs text-gray-500">총 소요시간</div>
+                                    <div className="border border-[#ECEEF2] rounded-xl p-3">
+                                        <div className="text-xs text-gray-400">총 소요시간</div>
                                         <div className="text-xl font-bold mt-1">
-                                            {Math.floor(
-                                                dayPlaces.reduce((s: number, p: any) => s + (p.duration || 0), 0) / 60
-                                            )}
-                                            시간{" "}
-                                            {dayPlaces.reduce((s: number, p: any) => s + (p.duration || 0), 0) % 60}분
+                                            {Math.floor(dayPlaces.reduce((s: number, p: any) => s + (p.duration || 0), 0) / 60)}h {dayPlaces.reduce((s: number, p: any) => s + (p.duration || 0), 0) % 60}m
                                         </div>
                                     </div>
                                 </div>
-
                                 <div className="space-y-2">
-                                    {dayPlaces.map((place: any, index: number) => (
-                                        <div
-                                            key={index}
-                                            className="flex items-center gap-2 text-sm border border-[#F1F2F5] rounded-lg px-3 py-2"
-                                        >
-                                            <span className="w-5 h-5 rounded-full bg-orange-400 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0">
-                                                {index + 1}
-                                            </span>
+                                    {dayPlaces.map((place: any, i: number) => (
+                                        <div key={place.id} className="flex items-center gap-2 text-sm border border-[#F1F2F5] rounded-lg px-3 py-2">
+                                            <span className="w-5 h-5 rounded-full bg-orange-400 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                                             <span className="truncate">{place.name}</span>
+                                            <span className="text-xs text-gray-400 flex-shrink-0 ml-auto">{place.duration}분</span>
                                         </div>
                                     ))}
-                                    {dayPlaces.length === 0 && (
-                                        <div className="text-sm text-gray-400">등록된 일정이 없습니다.</div>
-                                    )}
+                                    {dayPlaces.length === 0 && <div className="text-sm text-gray-400 text-center py-6">등록된 일정이 없습니다.</div>}
                                 </div>
                             </div>
                         )}
@@ -522,113 +385,128 @@ export default function TripDetailPage() {
                         {rightTab === "budget" && (
                             <div className="space-y-5">
                                 <div>
-                                    <div className="text-sm text-gray-500 mb-2">총 여행 예산</div>
+                                    <div className="text-sm font-semibold text-gray-700 mb-2">총 여행 예산</div>
                                     <div className="flex gap-2">
-                                        <input
-                                            value={budgetInput}
-                                            onChange={(e) => setBudgetInput(e.target.value)}
-                                            className="flex-1 border border-[#ECEEF2] rounded-xl px-3 py-2 text-lg font-semibold outline-none focus:border-blue-400"
-                                        />
-                                        <button
-                                            onClick={saveBudget}
-                                            className="px-4 py-2 rounded-xl bg-blue-500 text-white font-semibold hover:bg-blue-600"
-                                        >
-                                            저장
+                                        <div className="flex-1 flex items-center border border-[#ECEEF2] rounded-xl px-3 gap-1">
+                                            <input
+                                                value={budgetInput}
+                                                onChange={(e) => setBudgetInput(e.target.value.replace(/[^0-9]/g, ""))}
+                                                onKeyDown={(e) => e.key === "Enter" && saveBudget()}
+                                                className="flex-1 py-2.5 text-lg font-semibold outline-none bg-transparent"
+                                                placeholder="0"
+                                            />
+                                            <span className="text-gray-400 text-sm">원</span>
+                                        </div>
+                                        <button onClick={saveBudget} disabled={budgetSaving} className="px-4 py-2 rounded-xl bg-blue-500 text-white font-semibold hover:bg-blue-600 disabled:opacity-50 text-sm">
+                                            {budgetSaving ? "..." : "저장"}
                                         </button>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-3 gap-2 border border-[#ECEEF2] rounded-xl p-4 text-center">
                                     <div>
-                                        <div className="text-xs text-gray-500">예상 사용</div>
-                                        <div className="text-orange-500 font-bold mt-1">
-                                            {formatWon(estimatedTotal)}
-                                        </div>
+                                        <div className="text-xs text-gray-400 mb-1">예상 사용</div>
+                                        <div className="text-sm font-bold text-orange-500">{totalUsed.toLocaleString()}원</div>
+                                    </div>
+                                    <div className="border-x border-[#ECEEF2]">
+                                        <div className="text-xs text-gray-400 mb-1">잔여 예산</div>
+                                        <div className={`text-sm font-bold ${remaining < 0 ? "text-red-500" : "text-green-600"}`}>{remaining.toLocaleString()}원</div>
                                     </div>
                                     <div>
-                                        <div className="text-xs text-gray-500">잔여 예산</div>
-                                        <div className="text-green-600 font-bold mt-1">{formatWon(remaining)}</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-gray-500">진행률</div>
-                                        <div className="text-blue-600 font-bold mt-1">{progress}%</div>
+                                        <div className="text-xs text-gray-400 mb-1">진행률</div>
+                                        <div className="text-sm font-bold text-blue-600">{progress}%</div>
                                     </div>
                                 </div>
 
                                 <div>
-                                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-blue-500 rounded-full"
-                                            style={{ width: `${progress}%` }}
-                                        />
+                                    <div className="w-full h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                                        <div className={`h-full rounded-full transition-all duration-500 ${progress > 90 ? "bg-red-500" : "bg-blue-500"}`} style={{ width: `${progress}%` }} />
                                     </div>
-                                    <div className="text-xs text-gray-400 mt-1">
-                                        {progress}% ({estimatedTotal.toLocaleString()} / {totalBudget.toLocaleString()}원)
-                                    </div>
+                                    <div className="text-xs text-gray-400 mt-1">{progress}% ({totalUsed.toLocaleString()} / {totalBudget.toLocaleString()}원)</div>
                                 </div>
 
                                 <div>
-                                    <div className="flex items-center gap-1 text-sm font-semibold text-gray-700 mb-2">
-                                        지출 내역 (일정 기반)
-                                        <span className="text-gray-300" title="해당 일자 일정의 예상 비용 합계입니다">
-                                            ⓘ
-                                        </span>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="text-sm font-semibold text-gray-700">DAY {selectedDay} 지출 내역</div>
+                                        <div className="text-xs text-gray-400">비용을 직접 입력하세요</div>
                                     </div>
-                                    <div className="space-y-2">
-                                        {dayPlaces.map((place: any, index: number) => (
-                                            <div
-                                                key={index}
-                                                className="flex items-center justify-between text-sm"
-                                            >
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <span className="w-5 h-5 rounded-full bg-orange-400 text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0">
-                                                        {index + 1}
-                                                    </span>
-                                                    <span className="truncate">{place.name}</span>
+                                    {dayPlaces.length === 0 ? (
+                                        <div className="text-sm text-gray-400 text-center py-4">등록된 일정이 없습니다.</div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {dayPlaces.map((place: any, i: number) => (
+                                                <div key={place.id} className="flex items-center gap-2">
+                                                    <span className="w-5 h-5 rounded-full bg-orange-400 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
+                                                    <span className="flex-1 text-xs truncate">{place.name}</span>
+                                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                                        <div className="flex items-center border border-[#ECEEF2] rounded-lg px-2 py-1 gap-1">
+                                                            <input
+                                                                value={costInputs[place.id] ?? "0"}
+                                                                onChange={(e) => setCostInputs((prev) => ({ ...prev, [place.id]: e.target.value.replace(/[^0-9]/g, "") }))}
+                                                                onKeyDown={(e) => e.key === "Enter" && saveCost(place.id)}
+                                                                className="w-16 text-xs font-semibold outline-none text-right"
+                                                            />
+                                                            <span className="text-xs text-gray-400">원</span>
+                                                        </div>
+                                                        <button onClick={() => saveCost(place.id)} disabled={costSaving[place.id]} className="text-xs px-2 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50">
+                                                            {costSaving[place.id] ? "..." : "저장"}
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <span className="text-gray-700 flex-shrink-0">
-                                                    {formatWon(place.cost || 0)}
-                                                </span>
-                                            </div>
-                                        ))}
-                                        {dayPlaces.length === 0 && (
-                                            <div className="text-sm text-gray-400">등록된 일정이 없습니다.</div>
-                                        )}
+                                            ))}
+                                        </div>
+                                    )}
+                                    <div className="flex items-center justify-between border-t border-[#ECEEF2] mt-3 pt-3">
+                                        <span className="text-xs text-gray-500">DAY {selectedDay} 소계</span>
+                                        <span className="text-sm font-bold text-orange-500">{dayUsed.toLocaleString()}원</span>
                                     </div>
-
-                                    <div className="flex items-center justify-between border-t border-[#ECEEF2] mt-3 pt-3 font-semibold">
-                                        <span>총 예상 사용 금액</span>
-                                        <span className="text-orange-500">{formatWon(estimatedTotal)}</span>
+                                    <div className="flex items-center justify-between mt-1">
+                                        <span className="text-xs text-gray-500">전체 합계</span>
+                                        <span className="text-sm font-bold text-gray-700">{totalUsed.toLocaleString()}원</span>
                                     </div>
                                 </div>
 
-                                <div className="bg-blue-50 rounded-xl p-4 flex items-start justify-between gap-3">
-                                    <div className="text-sm text-gray-600 flex gap-2">
+                                {totalBudget === 0 && (
+                                    <div className="bg-blue-50 rounded-xl p-3 flex items-start gap-2 text-sm text-gray-600">
                                         <span>💡</span>
-                                        <span>각 일정의 예상 비용을 입력하면 더 정확한 예산 관리를 할 수 있어요!</span>
+                                        <span>총 예산을 먼저 입력하고 저장하면 진행률을 확인할 수 있어요!</span>
                                     </div>
-                                    <button
-                                        onClick={() => toast("비용 입력 기능은 준비 중입니다.")}
-                                        className="px-3 py-2 rounded-lg bg-blue-500 text-white text-sm font-semibold flex-shrink-0 hover:bg-blue-600"
-                                    >
-                                        비용 입력하기
-                                    </button>
-                                </div>
+                                )}
                             </div>
                         )}
 
                         {/* 메모 탭 */}
                         {rightTab === "memo" && (
                             <div className="space-y-3">
-                                <div className="text-sm text-gray-500">DAY {selectedDay} 메모</div>
-                                <textarea
-                                    value={memos[selectedDay] || ""}
-                                    onChange={(e) =>
-                                        setMemos({ ...memos, [selectedDay]: e.target.value })
+                                <div className="flex items-center justify-between">
+                                    <div className="text-sm font-semibold text-gray-700">DAY {selectedDay} 메모</div>
+                                    {memoSaving
+                                        ? <span className="text-xs text-blue-400 animate-pulse">저장 중...</span>
+                                        : memos[selectedDay] !== undefined && <span className="text-xs text-gray-400">자동 저장</span>
                                     }
-                                    placeholder="이 날의 메모를 남겨보세요 (예: 예약 정보, 준비물 등)"
-                                    className="w-full h-64 border border-[#ECEEF2] rounded-xl p-3 text-sm outline-none focus:border-blue-400 resize-none"
+                                </div>
+                                <textarea
+                                    value={memos[selectedDay] ?? ""}
+                                    onChange={(e) => handleMemoChange(selectedDay, e.target.value)}
+                                    placeholder={`DAY ${selectedDay} 메모를 남겨보세요.\n예) 예약 정보, 준비물, 참고 사항 등`}
+                                    className="w-full h-72 border border-[#ECEEF2] rounded-xl p-3 text-sm outline-none focus:border-blue-400 resize-none leading-relaxed"
                                 />
+                                <div className="text-xs text-gray-400">입력 후 1초 뒤 자동으로 저장됩니다.</div>
+                                {Object.entries(memos).filter(([d, m]) => Number(d) !== selectedDay && m).length > 0 && (
+                                    <div className="mt-2">
+                                        <div className="text-xs text-gray-400 mb-2">다른 날 메모</div>
+                                        <div className="space-y-1.5">
+                                            {Object.entries(memos)
+                                                .filter(([d, m]) => Number(d) !== selectedDay && m)
+                                                .map(([d, m]) => (
+                                                    <button key={d} onClick={() => setSelectedDay(Number(d))} className="w-full text-left border border-[#ECEEF2] rounded-lg px-3 py-2 text-xs text-gray-600 hover:bg-gray-50">
+                                                        <span className="font-semibold text-blue-500">DAY {d}</span>
+                                                        <span className="ml-2 text-gray-400">{String(m).slice(0, 30)}{String(m).length > 30 ? "..." : ""}</span>
+                                                    </button>
+                                                ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

@@ -1119,3 +1119,139 @@ def update_schedule(
     db.refresh(schedule)
 
     return schedule
+
+
+# ──────────────────────────────────────────
+# 총 예산 저장
+# ──────────────────────────────────────────
+
+@app.put("/trip/{trip_id}/budget")
+def update_trip_budget(
+    trip_id: int,
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not current_user:
+        return {"message": "unauthorized"}
+
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+
+    if not trip:
+        return {"message": "trip not found"}
+
+    if trip.user_id != current_user.id:
+        return {"message": "forbidden"}
+
+    trip.budget = data.get("budget", 0)
+    db.commit()
+    db.refresh(trip)
+
+    return {"budget": trip.budget}
+
+
+# ──────────────────────────────────────────
+# 일정 비용 저장
+# ──────────────────────────────────────────
+
+@app.put("/schedule/{schedule_id}/cost")
+def update_schedule_cost(
+    schedule_id: int,
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not current_user:
+        return {"message": "unauthorized"}
+
+    schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+
+    if not schedule:
+        return {"message": "not found"}
+
+    schedule.cost = data.get("cost", 0)
+    db.commit()
+    db.refresh(schedule)
+
+    return {"id": schedule.id, "cost": schedule.cost}
+
+
+# ──────────────────────────────────────────
+# 일별 메모 저장
+# ──────────────────────────────────────────
+
+@app.put("/trip/{trip_id}/day-memo")
+def update_day_memo(
+    trip_id: int,
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not current_user:
+        return {"message": "unauthorized"}
+
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+
+    if not trip or trip.user_id != current_user.id:
+        return {"message": "forbidden"}
+
+    day_number = data.get("day_number")
+    memo_text = data.get("memo", "")
+
+    # 해당 day의 첫 번째 일정에 memo 저장
+    schedule = (
+        db.query(Schedule)
+        .filter(
+            Schedule.trip_id == trip_id,
+            Schedule.day_number == day_number
+        )
+        .order_by(Schedule.order_no)
+        .first()
+    )
+
+    if schedule:
+        schedule.memo = memo_text
+        db.commit()
+        return {"message": "updated", "id": schedule.id}
+
+    # 일정이 없으면 메모 전용 더미 레코드 생성
+    dummy = Schedule(
+        trip_id=trip_id,
+        day_number=day_number,
+        order_no=0,
+        name="__memo__",
+        memo=memo_text,
+        cost=0
+    )
+    db.add(dummy)
+    db.commit()
+    db.refresh(dummy)
+
+    return {"message": "created", "id": dummy.id}
+
+
+# ──────────────────────────────────────────
+# 일별 메모 조회
+# ──────────────────────────────────────────
+
+@app.get("/trip/{trip_id}/day-memo/{day_number}")
+def get_day_memo(
+    trip_id: int,
+    day_number: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not current_user:
+        return {"message": "unauthorized"}
+
+    schedule = (
+        db.query(Schedule)
+        .filter(
+            Schedule.trip_id == trip_id,
+            Schedule.day_number == day_number
+        )
+        .order_by(Schedule.order_no)
+        .first()
+    )
+
+    return {"memo": schedule.memo if schedule else ""}
