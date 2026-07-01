@@ -49,9 +49,9 @@ export default function MainLayout({
       try {
 
         // 최근 여행
-        const latest = await api.get("/trip/latest")
+        const upcoming = await api.get("/trip/upcoming")
 
-        setCurrentTrip(latest.data)
+        setCurrentTrip(upcoming.data)
 
       } catch {
 

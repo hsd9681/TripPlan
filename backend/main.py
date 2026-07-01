@@ -8,7 +8,7 @@ from fastapi import Response
 from database import get_db
 
 from sqlalchemy.orm import Session
-
+from sqlalchemy import func
 from fastapi import Depends
 
 from models.trip import Trip
@@ -16,7 +16,7 @@ from models.schedule import Schedule
 from models.user import User
 
 from jose import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 from jose import jwt, JWTError
 
@@ -375,32 +375,78 @@ def get_trip_list(
 
     return trips
 
-@app.get("/trip/latest")
-def latest_trip(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+
+@app.get("/trip/upcoming")
+def upcoming_trip(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
 ):
+    today = date.today()
+
+    # 1. 현재 진행 중인 여행 우선
     trip = (
-
         db.query(Trip)
-
         .filter(
-            Trip.user_id == current_user.id
+            Trip.user_id == current_user.id,
+            Trip.start_date <= today,
+            Trip.end_date >= today
         )
-
-        .order_by(
-            Trip.id.desc()
-        )
-
+        .order_by(Trip.start_date.asc())
         .first()
-
     )
 
+    # 2. 진행 중인 여행이 없으면 가장 가까운 미래 여행
     if not trip:
+        trip = (
+            db.query(Trip)
+            .filter(
+                Trip.user_id == current_user.id,
+                Trip.start_date >= today
+            )
+            .order_by(Trip.start_date.asc())
+            .first()
+        )
 
+    if not trip:
         return {}
 
-    return trip
+    days = (
+        db.query(
+            Schedule.day_number,
+            func.count(Schedule.id)
+        )
+        .filter(
+            Schedule.trip_id == trip.id
+        )
+        .group_by(
+            Schedule.day_number
+        )
+        .all()
+    )
+
+    completed_days = 0
+
+    for day, count in days:
+        if count >= 3:
+            completed_days += 1
+
+    total_days = (
+                         trip.end_date - trip.start_date
+                 ).days + 1
+
+    progress = int(
+        completed_days / total_days * 100
+    )
+
+    return {
+        "id": trip.id,
+        "title": trip.title,
+        "country": trip.country,
+        "city": trip.city,
+        "start_date": trip.start_date,
+        "end_date": trip.end_date,
+        "progress": progress
+    }
 
 
 

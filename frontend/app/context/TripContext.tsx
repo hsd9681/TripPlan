@@ -5,6 +5,7 @@ import {
     useContext,
     useState
 } from "react"
+import api from "../lib/api"
 
 const TripContext =
     createContext<any>(null)
@@ -48,6 +49,15 @@ export function TripProvider({
 
     const [currentTrip, setCurrentTrip] =useState<any>(null)
 
+    const refreshTrip = async () => {
+    try {
+        const res = await api.get("/trip/upcoming")
+        setCurrentTrip(res.data)
+    } catch {
+        setCurrentTrip(null)
+    }
+}
+
     return (
 
         <TripContext.Provider
@@ -70,7 +80,9 @@ export function TripProvider({
                 setUser,
 
                 currentTrip,
-                setCurrentTrip
+                setCurrentTrip,
+
+                refreshTrip
 
             }}
 

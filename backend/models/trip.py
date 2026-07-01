@@ -34,6 +34,7 @@ class Trip(Base):
 
     people = Column(Integer)
 
+
     user_id = Column(
         BigInteger,
         ForeignKey("users.id"),

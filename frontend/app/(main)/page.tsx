@@ -29,8 +29,6 @@ export default function HomePage() {
     }
 
     return (
-        console.log("user =", user) ,
-    console.log("currentTrip =", currentTrip),
         <main className="p-8">
 
             <div className="max-w-6xl mx-auto">
@@ -118,18 +116,16 @@ export default function HomePage() {
                         >
 
                             <div
-                                className="
-                                    h-2
-                                    w-3/4
-                                    bg-blue-500
-                                    rounded-full
-                                "
+                                className="h-2 bg-blue-500 rounded-full"
+                                style={{
+                                    width: `${currentTrip?.progress ?? 0}%`
+                                }}
                             />
 
                         </div>
 
                         <p className="text-sm text-gray-500 mt-2">
-                            일정 준비도 75%
+                            일정 준비도 {currentTrip?.progress ?? 0}%
                         </p>
 
                     </div>

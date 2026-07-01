@@ -39,7 +39,9 @@ export default function SearchPanel() {
         setSchedule,
 
         editingIndex,
-        setEditingIndex
+        setEditingIndex,
+
+        refreshTrip
 
     } = useTrip()
 
@@ -1307,6 +1309,8 @@ export default function SearchPanel() {
                                                                     updatedSchedule
                                                                 )
 
+                                                                await refreshTrip()
+
                                                                 setEditingIndex(
                                                                     null
                                                                 )
@@ -1344,6 +1348,7 @@ export default function SearchPanel() {
                                                                     ]
 
                                                                 })
+                                                                await refreshTrip()
 
                                                                 setSelectedPlace(
                                                                     null
@@ -1352,10 +1357,13 @@ export default function SearchPanel() {
                                                                 toast.success(
                                                                     `DAY ${selectedDay}에 추가되었습니다.`
                                                                 )
+                                                                
 
                                                             }
+                                                            
 
                                                         }}
+                                                        
 
                                                         className="
             flex-1
