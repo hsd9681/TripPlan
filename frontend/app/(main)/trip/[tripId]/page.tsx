@@ -17,7 +17,7 @@ import { toast } from "react-hot-toast"
 export default function TripDetailPage() {
     const params = useParams()
     const rawId = Array.isArray(params.tripId) ? params.tripId[0] : params.tripId
-    const tripId = rawId ? Number(rawId) : 0
+    const tripId = rawId && !isNaN(Number(rawId)) ? Number(rawId) : 0
     const router = useRouter()
 
     const [rightTab, setRightTab] = useState<"schedule" | "budget" | "memo">("schedule")
@@ -93,7 +93,7 @@ export default function TripDetailPage() {
     }
 
     useEffect(() => {
-        if (!tripId || isNaN(tripId)) return
+        if (!tripId || tripId === 0) return
 
         api.get(`/trip/${tripId}`).then((res) => {
             if (res.data.message === "unauthorized") { router.push("/login"); return }
@@ -127,14 +127,13 @@ export default function TripDetailPage() {
     }, [tripId])
 
     useEffect(() => {
+        if (!tripId || tripId === 0) return 
         if (rightTab !== "memo") return
         if (memos[selectedDay] !== undefined) return
         api.get(`/trip/${tripId}/day-memo/${selectedDay}`).then((res) => {
             setMemos((prev) => ({ ...prev, [selectedDay]: res.data.memo ?? "" }))
-            console.log("params:", params)
-            console.log("tripId:", tripId)
         })
-    }, [rightTab, selectedDay])
+    }, [rightTab, selectedDay, tripId])
 
     const createRoute = (day: number) => {
         const places = schedule[day] || []
@@ -266,6 +265,33 @@ export default function TripDetailPage() {
         totalDurationMin = Math.round(legs.reduce((s: number, l: any) => s + l.duration.value, 0) / 60)
     }
 
+     if (!tripId || tripId === 0) {
+        return (
+            <main className="max-w-7xl mx-auto p-6">
+                <div className="bg-white border border-[#ECEEF2] rounded-3xl p-12 text-center">
+                    <p className="text-gray-400">잘못된 접근입니다.</p>
+                    <button
+                        onClick={() => router.push("/trip/result")}
+                        className="mt-4 text-blue-500 hover:underline text-sm"
+                    >
+                        여행 목록으로 돌아가기
+                    </button>
+                </div>
+            </main>
+        )
+    }
+
+    if (!tripInfo) {
+        return (
+            <main className="max-w-7xl mx-auto p-6">
+                <div className="bg-white border border-[#ECEEF2] rounded-3xl p-12 text-center">
+                    <div className="w-10 h-10 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-gray-400">불러오는 중...</p>
+                </div>
+            </main>
+        )
+    }
+
     return (
         <main className="max-w-7xl mx-auto p-6">
             <div className="bg-white border border-[#ECEEF2] rounded-3xl p-6">
@@ -332,7 +358,12 @@ export default function TripDetailPage() {
 
                     <div className="flex items-center gap-2">
                         <button
-                            onClick={() => toast("공유 기능은 준비 중입니다.")}
+                            onClick={() => {
+                                const url = `${window.location.origin}/trip/${tripId}`
+                                navigator.clipboard.writeText(url)
+                                    .then(() => toast.success("링크가 클립보드에 복사되었습니다."))
+                                    .catch(() => toast.error("복사에 실패했습니다."))
+                            }}
                             className="px-4 py-2 rounded-xl border border-[#ECEEF2] font-medium text-gray-700 hover:bg-gray-50"
                         >
                             공유

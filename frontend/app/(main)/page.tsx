@@ -78,6 +78,13 @@ export default function HomePage() {
                         >
                             내 여행 전체보기
                         </button>
+                        <button
+                            onClick={() => router.push("/settings")}
+                            className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 font-bold text-lg flex items-center justify-center hover:bg-blue-200 transition"
+                            title="설정"
+                        >
+                            {user?.nickname?.[0] ?? "?"}
+                        </button>
                     </div>
                 </div>
 
@@ -194,7 +201,7 @@ function RecentTrips() {
         import("../lib/api").then(({ default: api }) => {
             api.get("/trip").then((res) => {
                 setTrips(res.data.slice(0, 3)) // 최근 3개만
-            }).catch(() => {})
+            }).catch(() => { })
         })
     }, [])
 
