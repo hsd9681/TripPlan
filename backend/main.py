@@ -16,8 +16,8 @@ from models.schedule import Schedule
 from models.user import User
 
 from jose import jwt
+from groq import Groq
 from datetime import datetime, timedelta, date
-import google.generativeai as genai
 import json as json_module
 
 from jose import jwt, JWTError
@@ -124,8 +124,9 @@ def get_current_user(
         return None
 
 
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+MAPS_API_KEY = os.getenv("MAPS_API_KEY")
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 app = FastAPI()
 
@@ -154,7 +155,7 @@ def places(query: str):
 
     params = {
         "query": query,
-        "key": GOOGLE_API_KEY
+        "key": MAPS_API_KEY
     }
 
     response = requests.get(url, params=params)
@@ -176,7 +177,7 @@ def route(
         "destination": destination,
         "mode": "driving",
         "language": "ko",
-        "key": GOOGLE_API_KEY
+        "key": MAPS_API_KEY
     }
 
     data = requests.get(
@@ -251,7 +252,7 @@ def nearby(
             "ko",
 
         "key":
-            GOOGLE_API_KEY
+            MAPS_API_KEY
 
     }
 
@@ -272,7 +273,7 @@ def place_detail(place_id: str):
     params = {
         "place_id": place_id,
         "language": "ko",
-        "key": GOOGLE_API_KEY
+        "key": MAPS_API_KEY
     }
 
     response = requests.get(
@@ -471,10 +472,13 @@ def upcoming_trip(
 # ──────────────────────────────────────────
 
 def generate_ai_response(prompt: str) -> str:
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-pro")
-    response = model.generate_content(prompt)
-    return response.text
+    client = Groq(api_key=GROQ_API_KEY)
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=2000
+    )
+    return response.choices[0].message.content
 
 
 # ──────────────────────────────────────────
@@ -489,6 +493,8 @@ def ai_recommend_trip(
 ):
     if not current_user:
         return {"message": "unauthorized"}
+
+    print("DATA =", data)
 
     country    = data.get("country", "")
     city       = data.get("city", "")
@@ -538,12 +544,15 @@ def ai_recommend_trip(
 
     try:
         raw = generate_ai_response(prompt).strip()
+        print("RAW AI 응답 =", raw[:200])  # ← 여기에 추가
         if "```" in raw:
             raw = raw.split("```")[1]
             if raw.startswith("json"):
                 raw = raw[4:]
         ai_data = json_module.loads(raw.strip())
+        print("PARSED =", ai_data)  # ← 여기에 추가
     except Exception as e:
+        print("파싱 에러 =", e)
         return {"message": f"AI 응답 파싱 실패: {str(e)}"}
 
     # Trip 생성
@@ -573,7 +582,7 @@ def ai_recommend_trip(
                 resp = requests.get(places_url, params={
                     "query": search_query,
                     "language": "ko",
-                    "key": GOOGLE_API_KEY
+                    "key": MAPS_API_KEY
                 })
                 results = resp.json().get("results", [])
             except Exception:
