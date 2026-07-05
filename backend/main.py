@@ -17,6 +17,8 @@ from models.user import User
 
 from jose import jwt
 from datetime import datetime, timedelta, date
+import google.generativeai as genai
+import json as json_module
 
 from jose import jwt, JWTError
 
@@ -123,6 +125,7 @@ def get_current_user(
 
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 app = FastAPI()
 
@@ -373,7 +376,20 @@ def get_trip_list(
 
     )
 
-    return trips
+    return [
+        {
+            "id": t.id,
+            "title": t.title,
+            "country": t.country,
+            "city": t.city,
+            "start_date": str(t.start_date),
+            "end_date": str(t.end_date),
+            "people": t.people,
+            "budget": t.budget,
+            "created_at": str(t.created_at),
+        }
+        for t in trips
+    ]
 
 
 @app.get("/trip/upcoming")
@@ -450,6 +466,161 @@ def upcoming_trip(
 
 
 
+# ──────────────────────────────────────────
+# Gemini 호출 함수
+# ──────────────────────────────────────────
+
+def generate_ai_response(prompt: str) -> str:
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel("gemini-1.5-pro")
+    response = model.generate_content(prompt)
+    return response.text
+
+
+# ──────────────────────────────────────────
+# AI 추천 코스 생성
+# ──────────────────────────────────────────
+
+@app.post("/trip/ai-recommend")
+def ai_recommend_trip(
+    data: dict = Body(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not current_user:
+        return {"message": "unauthorized"}
+
+    country    = data.get("country", "")
+    city       = data.get("city", "")
+    start_date = data.get("start_date", "")
+    end_date   = data.get("end_date", "")
+    people     = data.get("people", 1)
+
+    delta = datetime.strptime(end_date, "%Y-%m-%d") - datetime.strptime(start_date, "%Y-%m-%d")
+    total_days = delta.days + 1
+
+    prompt = f"""
+당신은 여행 전문가입니다. 아래 조건에 맞는 여행 일정을 JSON으로만 답하세요.
+
+조건:
+- 국가: {country}
+- 도시: {city}
+- 기간: {total_days}일
+- 인원: {people}명
+
+규칙:
+- 하루에 장소 4~5개 추천
+- 실제 존재하는 유명한 관광지, 맛집, 카페, 쇼핑 명소만 추천
+- duration은 해당 장소 체류 시간(분 단위, 60~120)
+- category는 관광지/맛집/카페/쇼핑/문화 중 하나
+- Google Places에서 검색 가능한 정확한 영문 장소명 사용
+- search_query는 Google Places 검색에 최적화된 영문 쿼리
+
+반드시 아래 JSON 형식으로만 답하세요. 마크다운 없이 순수 JSON만:
+{{
+  "title": "{city} {total_days}일 여행",
+  "days": [
+    {{
+      "day": 1,
+      "places": [
+        {{
+          "name": "Senso-ji Temple",
+          "name_ko": "센소지",
+          "category": "관광지",
+          "duration": 90,
+          "search_query": "Senso-ji Temple Asakusa Tokyo"
+        }}
+      ]
+    }}
+  ]
+}}
+"""
+
+    try:
+        raw = generate_ai_response(prompt).strip()
+        if "```" in raw:
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        ai_data = json_module.loads(raw.strip())
+    except Exception as e:
+        return {"message": f"AI 응답 파싱 실패: {str(e)}"}
+
+    # Trip 생성
+    new_trip = Trip(
+        title=ai_data.get("title", f"{city} 여행"),
+        country=country,
+        city=city,
+        start_date=start_date,
+        end_date=end_date,
+        people=people,
+        user_id=current_user.id
+    )
+    db.add(new_trip)
+    db.commit()
+    db.refresh(new_trip)
+    trip_id = new_trip.id
+
+    # Google Places로 각 장소 검색 후 Schedule 저장
+    places_url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+
+    for day_data in ai_data.get("days", []):
+        day_number = day_data["day"]
+        for order, place in enumerate(day_data.get("places", []), start=1):
+            search_query = place.get("search_query") or f"{place['name']} {city}"
+
+            try:
+                resp = requests.get(places_url, params={
+                    "query": search_query,
+                    "language": "ko",
+                    "key": GOOGLE_API_KEY
+                })
+                results = resp.json().get("results", [])
+            except Exception:
+                results = []
+
+            if results:
+                p = results[0]
+                geo = p.get("geometry", {}).get("location", {})
+                photos = p.get("photos", [])
+                schedule = Schedule(
+                    trip_id=trip_id,
+                    day_number=day_number,
+                    order_no=order,
+                    place_id=p.get("place_id", ""),
+                    name=p.get("name", place.get("name_ko", place["name"])),
+                    category=place.get("category", "관광지"),
+                    photo=photos[0].get("photo_reference", "") if photos else "",
+                    rating=p.get("rating"),
+                    address=p.get("formatted_address", ""),
+                    duration=place.get("duration", 90),
+                    lat=geo.get("lat"),
+                    lng=geo.get("lng"),
+                    cost=0
+                )
+            else:
+                schedule = Schedule(
+                    trip_id=trip_id,
+                    day_number=day_number,
+                    order_no=order,
+                    place_id="",
+                    name=place.get("name_ko", place["name"]),
+                    category=place.get("category", "관광지"),
+                    photo="",
+                    rating=None,
+                    address="",
+                    duration=place.get("duration", 90),
+                    lat=None,
+                    lng=None,
+                    cost=0
+                )
+
+            db.add(schedule)
+
+    db.commit()
+    return {"trip_id": trip_id, "title": ai_data.get("title")}
+
+
 @app.get("/trip/{trip_id}")
 def get_trip(
 
@@ -508,7 +679,17 @@ def get_trip(
                 "forbidden"
         }
 
-    return trip
+    return {
+        "id": trip.id,
+        "title": trip.title,
+        "country": trip.country,
+        "city": trip.city,
+        "start_date": str(trip.start_date),
+        "end_date": str(trip.end_date),
+        "people": trip.people,
+        "budget": trip.budget,
+        "created_at": str(trip.created_at),
+    }
 
 
 @app.post("/schedule")
@@ -657,7 +838,26 @@ def get_schedule(
 
     )
 
-    return schedules
+    return [
+        {
+            "id": s.id,
+            "trip_id": s.trip_id,
+            "day_number": s.day_number,
+            "order_no": s.order_no,
+            "place_id": s.place_id,
+            "name": s.name,
+            "category": s.category,
+            "photo": s.photo,
+            "rating": s.rating,
+            "address": s.address,
+            "duration": s.duration,
+            "lat": s.lat,
+            "lng": s.lng,
+            "memo": s.memo,
+            "cost": s.cost,
+        }
+        for s in schedules
+    ]
 
 
 @app.delete("/schedule/{schedule_id}")
@@ -1120,22 +1320,30 @@ def update_schedule(
 
     return schedule
 
-
 # ──────────────────────────────────────────
-# 총 예산 저장
+# 예산 저장 (총 예산)
 # ──────────────────────────────────────────
 
 @app.put("/trip/{trip_id}/budget")
 def update_trip_budget(
+
     trip_id: int,
+
     data: dict,
+
     current_user: User = Depends(get_current_user),
+
     db: Session = Depends(get_db)
+
 ):
     if not current_user:
         return {"message": "unauthorized"}
 
-    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    trip = (
+        db.query(Trip)
+        .filter(Trip.id == trip_id)
+        .first()
+    )
 
     if not trip:
         return {"message": "trip not found"}
@@ -1144,6 +1352,7 @@ def update_trip_budget(
         return {"message": "forbidden"}
 
     trip.budget = data.get("budget", 0)
+
     db.commit()
     db.refresh(trip)
 
@@ -1151,25 +1360,35 @@ def update_trip_budget(
 
 
 # ──────────────────────────────────────────
-# 일정 비용 저장
+# 일정 비용 업데이트
 # ──────────────────────────────────────────
 
 @app.put("/schedule/{schedule_id}/cost")
 def update_schedule_cost(
+
     schedule_id: int,
+
     data: dict,
+
     current_user: User = Depends(get_current_user),
+
     db: Session = Depends(get_db)
+
 ):
     if not current_user:
         return {"message": "unauthorized"}
 
-    schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
+    schedule = (
+        db.query(Schedule)
+        .filter(Schedule.id == schedule_id)
+        .first()
+    )
 
     if not schedule:
         return {"message": "not found"}
 
     schedule.cost = data.get("cost", 0)
+
     db.commit()
     db.refresh(schedule)
 
@@ -1177,20 +1396,71 @@ def update_schedule_cost(
 
 
 # ──────────────────────────────────────────
-# 일별 메모 저장
+# 메모 저장 (일정별)
 # ──────────────────────────────────────────
 
-@app.put("/trip/{trip_id}/day-memo")
-def update_day_memo(
-    trip_id: int,
+@app.put("/schedule/{schedule_id}/memo")
+def update_schedule_memo(
+
+    schedule_id: int,
+
     data: dict,
+
     current_user: User = Depends(get_current_user),
+
     db: Session = Depends(get_db)
+
 ):
     if not current_user:
         return {"message": "unauthorized"}
 
-    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    schedule = (
+        db.query(Schedule)
+        .filter(Schedule.id == schedule_id)
+        .first()
+    )
+
+    if not schedule:
+        return {"message": "not found"}
+
+    schedule.memo = data.get("memo", "")
+
+    db.commit()
+    db.refresh(schedule)
+
+    return {"id": schedule.id, "memo": schedule.memo}
+
+
+# ──────────────────────────────────────────
+# 일별 메모 저장 (trip + day_number 기준 첫 번째 schedule에 저장)
+# 또는 day_memo 테이블 대신 trip 레벨에서 JSON으로 관리
+# ──────────────────────────────────────────
+
+@app.put("/trip/{trip_id}/day-memo")
+def update_day_memo(
+
+    trip_id: int,
+
+    data: dict,
+
+    current_user: User = Depends(get_current_user),
+
+    db: Session = Depends(get_db)
+
+):
+    """
+    data: { day_number: int, memo: str }
+    해당 day의 첫 번째 schedule에 memo를 저장.
+    일정이 없으면 memo_only 더미 레코드 생성.
+    """
+    if not current_user:
+        return {"message": "unauthorized"}
+
+    trip = (
+        db.query(Trip)
+        .filter(Trip.id == trip_id)
+        .first()
+    )
 
     if not trip or trip.user_id != current_user.id:
         return {"message": "forbidden"}
@@ -1198,7 +1468,7 @@ def update_day_memo(
     day_number = data.get("day_number")
     memo_text = data.get("memo", "")
 
-    # 해당 day의 첫 번째 일정에 memo 저장
+    # 해당 day의 첫 번째 schedule 조회
     schedule = (
         db.query(Schedule)
         .filter(
@@ -1214,7 +1484,7 @@ def update_day_memo(
         db.commit()
         return {"message": "updated", "id": schedule.id}
 
-    # 일정이 없으면 메모 전용 더미 레코드 생성
+    # 일정이 없는 경우 memo 전용 더미 레코드 생성
     dummy = Schedule(
         trip_id=trip_id,
         day_number=day_number,
@@ -1236,10 +1506,15 @@ def update_day_memo(
 
 @app.get("/trip/{trip_id}/day-memo/{day_number}")
 def get_day_memo(
+
     trip_id: int,
+
     day_number: int,
+
     current_user: User = Depends(get_current_user),
+
     db: Session = Depends(get_db)
+
 ):
     if not current_user:
         return {"message": "unauthorized"}

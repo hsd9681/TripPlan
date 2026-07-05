@@ -16,7 +16,8 @@ import { toast } from "react-hot-toast"
 
 export default function TripDetailPage() {
     const params = useParams()
-    const tripId = Number(params.tripId)
+    const rawId = Array.isArray(params.tripId) ? params.tripId[0] : params.tripId
+    const tripId = rawId ? Number(rawId) : 0
     const router = useRouter()
 
     const [rightTab, setRightTab] = useState<"schedule" | "budget" | "memo">("schedule")
@@ -27,9 +28,9 @@ export default function TripDetailPage() {
     const [tripInfo, setTripInfo] = useState<any>(null)
     const totalDays = tripInfo
         ? Math.floor(
-              (new Date(tripInfo.end_date).getTime() - new Date(tripInfo.start_date).getTime()) /
-                  (1000 * 60 * 60 * 24)
-          ) + 1
+            (new Date(tripInfo.end_date).getTime() - new Date(tripInfo.start_date).getTime()) /
+            (1000 * 60 * 60 * 24)
+        ) + 1
         : 5
 
     const [totalBudget, setTotalBudget] = useState(0)
@@ -42,6 +43,9 @@ export default function TripDetailPage() {
     const [memos, setMemos] = useState<{ [day: number]: string }>({})
     const [memoSaving, setMemoSaving] = useState(false)
     const memoTimerRef = useRef<{ [day: number]: ReturnType<typeof setTimeout> }>({})
+
+    const [isEditingTitle, setIsEditingTitle] = useState(false)
+    const [titleInput, setTitleInput] = useState("")
 
     const { isLoaded } = useJsApiLoader({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY!,
@@ -63,7 +67,34 @@ export default function TripDetailPage() {
         setCurrentTrip(res.data)
     }
 
+    // ── 여행 삭제 ──
+    const deleteTrip = async () => {
+        if (!confirm("정말 이 여행을 삭제하시겠습니까?\n삭제된 여행은 복구할 수 없습니다.")) return
+        try {
+            await api.delete(`/trip/${tripId}`)
+            toast.success("여행이 삭제되었습니다.")
+            router.push("/trip/result")
+        } catch {
+            toast.error("삭제에 실패했습니다.")
+        }
+    }
+
+    // ── 여행 이름 수정 ──
+    const saveTitle = async () => {
+        if (!titleInput.trim()) { toast.error("여행 이름을 입력해주세요."); return }
+        try {
+            await api.put(`/trip/${tripId}/title`, { title: titleInput.trim() })
+            setTripInfo((prev: any) => ({ ...prev, title: titleInput.trim() }))
+            setIsEditingTitle(false)
+            toast.success("여행 이름이 수정되었습니다.")
+        } catch {
+            toast.error("수정에 실패했습니다.")
+        }
+    }
+
     useEffect(() => {
+        if (!tripId || isNaN(tripId)) return
+
         api.get(`/trip/${tripId}`).then((res) => {
             if (res.data.message === "unauthorized") { router.push("/login"); return }
             if (res.data.message === "forbidden") { router.push("/trip/result"); return }
@@ -100,6 +131,8 @@ export default function TripDetailPage() {
         if (memos[selectedDay] !== undefined) return
         api.get(`/trip/${tripId}/day-memo/${selectedDay}`).then((res) => {
             setMemos((prev) => ({ ...prev, [selectedDay]: res.data.memo ?? "" }))
+            console.log("params:", params)
+            console.log("tripId:", tripId)
         })
     }, [rightTab, selectedDay])
 
@@ -148,7 +181,7 @@ export default function TripDetailPage() {
         if (index === 0) return
         const updated = { ...schedule }
         const day = [...updated[selectedDay]]
-        ;[day[index - 1], day[index]] = [day[index], day[index - 1]]
+            ;[day[index - 1], day[index]] = [day[index], day[index - 1]]
         updated[selectedDay] = day
         setSchedule(updated)
         await api.put("/schedule/order", day.map((item: any, idx: number) => ({ id: item.id, order_no: idx + 1 })))
@@ -161,7 +194,7 @@ export default function TripDetailPage() {
         if (index === day.length - 1) return
         const updated = { ...schedule }
         const copied = [...day]
-        ;[copied[index], copied[index + 1]] = [copied[index + 1], copied[index]]
+            ;[copied[index], copied[index + 1]] = [copied[index + 1], copied[index]]
         updated[selectedDay] = copied
         setSchedule(updated)
         await api.put("/schedule/order", copied.map((item: any, idx: number) => ({ id: item.id, order_no: idx + 1 })))
@@ -240,20 +273,77 @@ export default function TripDetailPage() {
                 {/* 헤더 */}
                 <div className="flex items-center justify-between border-b border-[#ECEEF2] pb-4 mb-6">
                     <div className="flex items-center gap-3">
-                        <button onClick={() => router.back()} className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-600 text-xl">‹</button>
-                        <div>
-                            <h1 className="text-2xl font-bold">{tripInfo?.title ?? "여행 상세"}</h1>
-                            {tripInfo && (
-                                <p className="text-sm text-gray-400 mt-0.5">
-                                    {tripInfo.start_date} ~ {tripInfo.end_date} · 성인 {tripInfo.people}명
-                                </p>
-                            )}
-                        </div>
-                        <button onClick={() => toast("여행 이름 수정은 준비 중입니다.")} className="text-gray-400 hover:text-gray-600 text-lg">✎</button>
+                        <button
+                            onClick={() => router.back()}
+                            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-600 text-xl"
+                        >
+                            ‹
+                        </button>
+
+                        {/* 여행 이름 — 수정 모드 / 표시 모드 */}
+                        {isEditingTitle ? (
+                            <div className="flex items-center gap-2">
+                                <input
+                                    value={titleInput}
+                                    onChange={(e) => setTitleInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") saveTitle()
+                                        if (e.key === "Escape") setIsEditingTitle(false)
+                                    }}
+                                    autoFocus
+                                    className="text-2xl font-bold border-b-2 border-blue-500 outline-none bg-transparent w-64"
+                                />
+                                <button
+                                    onClick={saveTitle}
+                                    className="px-3 py-1.5 rounded-lg bg-blue-500 text-white text-sm font-semibold hover:bg-blue-600"
+                                >
+                                    저장
+                                </button>
+                                <button
+                                    onClick={() => setIsEditingTitle(false)}
+                                    className="px-3 py-1.5 rounded-lg border border-[#ECEEF2] text-sm text-gray-500 hover:bg-gray-50"
+                                >
+                                    취소
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2">
+                                <div>
+                                    <h1 className="text-2xl font-bold">{tripInfo?.title ?? "여행 상세"}</h1>
+                                    {tripInfo && (
+                                        <p className="text-sm text-gray-400 mt-0.5">
+                                            {tripInfo.start_date} ~ {tripInfo.end_date} · 성인 {tripInfo.people}명
+                                        </p>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        setTitleInput(tripInfo?.title ?? "")
+                                        setIsEditingTitle(true)
+                                    }}
+                                    className="text-gray-400 hover:text-gray-600 text-lg"
+                                    title="여행 이름 수정"
+                                >
+                                    ✎
+                                </button>
+                            </div>
+                        )}
                     </div>
+
                     <div className="flex items-center gap-2">
-                        <button onClick={() => toast("공유 기능은 준비 중입니다.")} className="px-4 py-2 rounded-xl border border-[#ECEEF2] font-medium text-gray-700 hover:bg-gray-50">공유</button>
-                        <button onClick={() => toast("삭제 기능은 준비 중입니다.")} className="px-4 py-2 rounded-xl border border-[#ECEEF2] font-medium text-red-500 hover:bg-red-50">삭제</button>
+                        <button
+                            onClick={() => toast("공유 기능은 준비 중입니다.")}
+                            className="px-4 py-2 rounded-xl border border-[#ECEEF2] font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                            공유
+                        </button>
+                        {/* 삭제 버튼 — 실제 동작 연결 */}
+                        <button
+                            onClick={deleteTrip}
+                            className="px-4 py-2 rounded-xl border border-[#ECEEF2] font-medium text-red-500 hover:bg-red-50"
+                        >
+                            삭제
+                        </button>
                     </div>
                 </div>
 
@@ -265,9 +355,8 @@ export default function TripDetailPage() {
                             <button
                                 key={day}
                                 onClick={() => setSelectedDay(day)}
-                                className={`w-full p-3 mb-1.5 rounded-xl text-left font-semibold text-sm transition last:mb-0 ${
-                                    selectedDay === day ? "bg-blue-500 text-white" : "border border-[#ECEEF2] bg-white text-gray-700 hover:bg-gray-50"
-                                }`}
+                                className={`w-full p-3 mb-1.5 rounded-xl text-left font-semibold text-sm transition last:mb-0 ${selectedDay === day ? "bg-blue-500 text-white" : "border border-[#ECEEF2] bg-white text-gray-700 hover:bg-gray-50"
+                                    }`}
                             >
                                 DAY {day}
                             </button>

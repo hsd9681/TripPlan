@@ -221,7 +221,7 @@ export default function HomePage() {
                     </Link>
 
                     <Link
-                        href="/trip/result"
+                        href="/trip/ai-recommend"
                         className="
                             bg-white
                             rounded-2xl
@@ -236,7 +236,7 @@ export default function HomePage() {
                         </div>
 
                         <p className="font-medium">
-                            추천 코스
+                            AI 추천 코스
                         </p>
                     </Link>
 
