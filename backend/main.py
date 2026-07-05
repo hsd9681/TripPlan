@@ -1539,3 +1539,44 @@ def get_day_memo(
     )
 
     return {"memo": schedule.memo if schedule else ""}
+
+# ──────────────────────────────────────────
+# 닉네임 변경
+# ──────────────────────────────────────────
+
+@app.put("/me/nickname")
+def update_nickname(
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not current_user:
+        return {"message": "unauthorized"}
+
+    current_user.nickname = data.get("nickname", current_user.nickname)
+    db.commit()
+    db.refresh(current_user)
+
+    return {"id": current_user.id, "nickname": current_user.nickname}
+
+
+# ──────────────────────────────────────────
+# 비밀번호 변경
+# ──────────────────────────────────────────
+
+@app.put("/me/password")
+def update_password(
+    data: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not current_user:
+        return {"message": "unauthorized"}
+
+    if current_user.password != data.get("current_password"):
+        return {"message": "wrong password"}
+
+    current_user.password = data.get("new_password")
+    db.commit()
+
+    return {"message": "success"}

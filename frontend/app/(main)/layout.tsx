@@ -1,257 +1,131 @@
 "use client"
 
 import Link from "next/link"
-
+import { usePathname } from "next/navigation"
 import SearchPanel from "../components/SearchPanel"
 import api from "../lib/api"
 import { useRouter } from "next/navigation"
 import { useTrip } from "../context/TripContext"
-
-
-
-import {
-  useSearchPanel,
-} from "../context/SearchPanelContext"
+import { useSearchPanel } from "../context/SearchPanelContext"
 import { useEffect } from "react"
 
 export default function MainLayout({
-  children,
+    children,
 }: {
-  children: React.ReactNode;
+    children: React.ReactNode
 }) {
+    const { isOpen, setIsOpen } = useSearchPanel()
+    const router = useRouter()
+    const pathname = usePathname()
+    const { user, setUser, setCurrentTrip } = useTrip()
 
-  const {
-    isOpen,
-    setIsOpen
-  } = useSearchPanel()
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                const me = await api.get("/me")
+                setUser(me.data)
+            } catch {
+                router.push("/login")
+                return
+            }
+            try {
+                const upcoming = await api.get("/trip/upcoming")
+                setCurrentTrip(upcoming.data)
+            } catch {
+                setCurrentTrip(null)
+            }
+        }
+        loadData()
+    }, [])
 
-  const router = useRouter()
-  const { user, setUser, setCurrentTrip } = useTrip()
+    const menus = [
+        { href: "/", icon: "🏠", label: "홈" },
+        { href: "/trip/result", icon: "✈️", label: "내 여행" },
+        { href: "/trip/ai-recommend", icon: "✨", label: "AI 추천 코스" },
+        { href: "/trip/create", icon: "➕", label: "새 여행 계획" },
+        { href: "/settings", icon: "⚙️", label: "설정" },
+    ]
 
-  useEffect(() => {
+    return (
+        <div className="h-screen flex bg-[#f8fafc]">
 
-    const loadData = async () => {
+            {/* Sidebar */}
+            <aside className="w-56 bg-white border-r flex flex-col">
 
-      try {
+                {/* Logo */}
+                <div className="h-20 flex items-center px-6 border-b">
+                    <h1 className="text-3xl font-bold text-blue-600">TripPlan</h1>
+                </div>
 
-        // 로그인 확인
-        const me = await api.get("/me")
+                {/* Menu */}
+                <nav className="flex-1 p-3">
+                    <div className="space-y-1">
 
-        setUser(me.data)
+                        {menus.map((menu) => {
+                            const isActive = pathname === menu.href
+                            return (
+                                <Link
+                                    key={menu.href}
+                                    href={menu.href}
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition font-medium text-sm ${
+                                        isActive
+                                            ? "bg-blue-50 text-blue-600"
+                                            : "text-gray-600 hover:bg-gray-100"
+                                    }`}
+                                >
+                                    <span className="text-lg">{menu.icon}</span>
+                                    {menu.label}
+                                </Link>
+                            )
+                        })}
 
-      } catch {
+                        {/* 지도 검색 토글 */}
+                        <button
+                            onClick={() => setIsOpen(!isOpen)}
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition font-medium text-sm ${
+                                isOpen
+                                    ? "bg-blue-50 text-blue-600"
+                                    : "text-gray-600 hover:bg-gray-100"
+                            }`}
+                        >
+                            <span className="text-lg">🗺️</span>
+                            지도 검색
+                        </button>
 
-        router.push("/login")
-        return
+                    </div>
+                </nav>
 
-      }
+                {/* Profile */}
+                <div className="border-t p-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg flex-shrink-0">
+                            {user?.nickname?.[0] ?? "?"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm truncate">{user?.nickname || "로딩중..."}</p>
+                            <button
+                                onClick={async () => {
+                                    await api.post("/logout")
+                                    router.push("/login")
+                                }}
+                                className="text-xs text-gray-400 hover:text-red-500 transition"
+                            >
+                                로그아웃
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
-      try {
+            </aside>
 
-        // 최근 여행
-        const upcoming = await api.get("/trip/upcoming")
+            {/* Content */}
+            <main className="flex-1 overflow-auto transition-all duration-300">
+                {children}
+            </main>
 
-        setCurrentTrip(upcoming.data)
-
-      } catch {
-
-        // 여행이 없으면 null
-        setCurrentTrip(null)
-
-      }
-
-    }
-
-    loadData()
-
-  }, [])
-
-  return (
-
-    <div className="h-screen flex bg-[#f8fafc]">
-
-      {/* Sidebar */}
-      <aside className="w-56 bg-white border-r flex flex-col">
-
-        {/* Logo */}
-        <div className="h-20 flex items-center px-6 border-b">
-
-          <h1 className="text-3xl font-bold text-blue-600">
-            TripPlan
-          </h1>
-
-        </div>
-
-        {/* Menu */}
-        <nav className="flex-1 p-3">
-
-          <div className="space-y-2">
-
-            <Link
-              href="/"
-              className="
-                flex items-center gap-3
-                px-4 py-3
-                rounded-xl
-                bg-blue-50
-                text-blue-600
-                font-medium
-              "
-            >
-              🏠 홈
-            </Link>
-
-            <Link
-              href="/trip/create"
-              className="
-                flex items-center gap-3
-                px-4 py-3
-                rounded-xl
-                hover:bg-gray-100
-              "
-            >
-              ✈️ 내 여행
-            </Link>
-
-            {/* 지도 검색 토글 */}
-            <button
-
-              onClick={() =>
-                setIsOpen(!isOpen)
-              }
-
-              className="
-                w-full
-                flex items-center gap-3
-                px-4 py-3
-                rounded-xl
-                hover:bg-gray-100
-                text-left
-              "
-            >
-
-              🗺️ 지도 검색
-
-            </button>
-
-            <Link
-              href="/trip/result"
-              className="
-                flex items-center gap-3
-                px-4 py-3
-                rounded-xl
-                hover:bg-gray-100
-              "
-            >
-              ⭐ 추천 장소
-            </Link>
-
-            <Link
-              href="#"
-              className="
-                flex items-center gap-3
-                px-4 py-3
-                rounded-xl
-                hover:bg-gray-100
-              "
-            >
-              ❤️ 찜 목록
-            </Link>
-
-            <Link
-              href="#"
-              className="
-                flex items-center gap-3
-                px-4 py-3
-                rounded-xl
-                hover:bg-gray-100
-              "
-            >
-              📅 여행 관리
-            </Link>
-
-            <Link
-              href="#"
-              className="
-                flex items-center gap-3
-                px-4 py-3
-                rounded-xl
-                hover:bg-gray-100
-              "
-            >
-              ⚙️ 설정
-            </Link>
-
-          </div>
-
-        </nav>
-
-        {/* Profile */}
-        <div className="border-t p-4">
-
-          <div className="flex items-center gap-3">
-
-            <div
-              className="
-                w-10 h-10
-                rounded-full
-                bg-gray-300
-              "
-            />
-            <div className="flex-1">
-              <div className="flex items-center gap-12">
-
-                <p className="font-medium">
-                  {user?.nickname || "로딩중..."}
-                </p>
-                <button
-
-                  onClick={async () => {
-
-                    await api.post(
-                      "/logout"
-                    )
-
-                    router.push(
-                      "/login"
-                    )
-
-                  }}
-
-                  className="text-xs text-gray-400 hover:text-gray-600 underline cursor-pointer" >
-
-                  로그아웃
-
-                </button>
-              </div>
-              <p className="text-sm text-blue-500">
-                Pro B1
-              </p>
-
-
-            </div>
-          </div>
+            {/* 전역 지도 패널 */}
+            <SearchPanel />
 
         </div>
-
-      </aside>
-
-      {/* Content */}
-      <main
-        className="
-          flex-1
-          overflow-auto
-          transition-all
-          duration-300
-        "
-      >
-        {children}
-      </main>
-
-      {/* 전역 지도 패널 */}
-      <SearchPanel />
-
-    </div>
-
-  );
+    )
 }
