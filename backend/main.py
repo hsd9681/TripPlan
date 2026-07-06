@@ -15,7 +15,8 @@ from models.trip import Trip
 from models.schedule import Schedule
 from models.user import User
 
-from jose import jwt
+import httpx
+from fastapi.responses import RedirectResponse
 from groq import Groq
 from datetime import datetime, timedelta, date
 import json as json_module
@@ -123,10 +124,16 @@ def get_current_user(
 
         return None
 
-
+# ──────────────────────────────────────────
+# 환경변수
+# ──────────────────────────────────────────
 MAPS_API_KEY = os.getenv("MAPS_API_KEY")
-
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
+KAKAO_REST_API_KEY = os.getenv("KAKAO_REST_API_KEY")
+KAKAO_CLIENT_SECRET = os.getenv("KAKAO_CLIENT_SECRET")
 
 app = FastAPI()
 
@@ -1580,3 +1587,159 @@ def update_password(
     db.commit()
 
     return {"message": "success"}
+
+
+@app.get("/auth/google")
+def google_login():
+    google_auth_url = (
+        "https://accounts.google.com/o/oauth2/v2/auth"
+        f"?client_id={GOOGLE_CLIENT_ID}"
+        f"&redirect_uri=http://localhost:8000/auth/google/callback"
+        f"&response_type=code"
+        f"&scope=openid email profile"
+        f"&access_type=offline"
+    )
+    return RedirectResponse(google_auth_url)
+
+
+@app.get("/auth/google/callback")
+def google_callback(
+    code: str,
+    db: Session = Depends(get_db)
+):
+    # ── 1. 코드로 액세스 토큰 교환 ──
+    token_res = httpx.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "code": code,
+            "client_id": GOOGLE_CLIENT_ID,
+            "client_secret": GOOGLE_CLIENT_SECRET,
+            "redirect_uri": "http://localhost:8000/auth/google/callback",
+            "grant_type": "authorization_code",
+        }
+    )
+    token_data = token_res.json()
+    access_token = token_data.get("access_token")
+
+    if not access_token:
+        return RedirectResponse(f"{FRONTEND_URL}/login?error=google_token_failed")
+
+    # ── 2. 액세스 토큰으로 유저 정보 조회 ──
+    user_res = httpx.get(
+        "https://www.googleapis.com/oauth2/v2/userinfo",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    user_info = user_res.json()
+
+    email = user_info.get("email")
+    name = user_info.get("name", "구글유저")
+
+    if not email:
+        return RedirectResponse(f"{FRONTEND_URL}/login?error=google_email_failed")
+
+    # ── 3. DB에서 유저 조회 or 자동 회원가입 ──
+    user = db.query(User).filter(User.email == email).first()
+
+    if not user:
+        user = User(
+            email=email,
+            nickname=name,
+            password="GOOGLE_OAUTH"  # 소셜 로그인은 비밀번호 없음
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    # ── 4. JWT 토큰 발급 후 프론트로 리다이렉트 ──
+    jwt_token = create_access_token(user.id)
+
+    response = RedirectResponse(f"{FRONTEND_URL}/auth/google/success")
+    response.set_cookie(
+        key="access_token",
+        value=jwt_token,
+        httponly=True,
+        samesite="lax",
+        secure=False
+    )
+
+    return response
+
+# ──────────────────────────────────────────
+# 카카오 OAuth 로그인
+# ──────────────────────────────────────────
+
+@app.get("/auth/kakao")
+def kakao_login():
+    kakao_auth_url = (
+        "https://kauth.kakao.com/oauth/authorize"
+        f"?client_id={KAKAO_REST_API_KEY}"
+        f"&redirect_uri=http://localhost:3000/auth/kakao/callback"
+        f"&response_type=code"
+    )
+    return RedirectResponse(kakao_auth_url)
+
+
+@app.post("/auth/kakao/token")
+async def kakao_token(
+    data: dict = Body(...),
+    db: Session = Depends(get_db)
+):
+    code = data.get("code")
+
+    # ── 1. 코드로 액세스 토큰 교환 ──
+    token_res = httpx.post(
+        "https://kauth.kakao.com/oauth/token",
+        data={
+            "grant_type": "authorization_code",
+            "client_id": KAKAO_REST_API_KEY,
+            "client_secret": KAKAO_CLIENT_SECRET,
+            "redirect_uri": "http://localhost:3000/auth/kakao/callback",
+            "code": code,
+        },
+        headers={"Content-Type": "application/x-www-form-urlencoded"}
+    )
+    token_data = token_res.json()
+    access_token = token_data.get("access_token")
+
+    if not access_token:
+        return {"message": "kakao_token_failed"}
+
+    # ── 2. 액세스 토큰으로 유저 정보 조회 ──
+    user_res = httpx.get(
+        "https://kapi.kakao.com/v2/user/me",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    user_info = user_res.json()
+
+    kakao_account = user_info.get("kakao_account", {})
+    email = kakao_account.get("email")
+    nickname = user_info.get("properties", {}).get("nickname", "카카오유저")
+
+    # 이메일 없는 경우 카카오 ID로 대체
+    if not email:
+        email = f"kakao_{user_info.get('id')}@kakao.com"
+
+    # ── 3. DB에서 유저 조회 or 자동 회원가입 ──
+    user = db.query(User).filter(User.email == email).first()
+
+    if not user:
+        user = User(
+            email=email,
+            nickname=nickname,
+            password="KAKAO_OAUTH"
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    # ── 4. JWT 토큰 발급 ──
+    jwt_token = create_access_token(user.id)
+
+    return {
+        "access_token": jwt_token,
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "nickname": user.nickname,
+        }
+    }
