@@ -25,6 +25,11 @@ export default function TripDetailPage() {
     const [directions, setDirections] = useState<any>(null)
     const [selectedMarker, setSelectedMarker] = useState<any>(null)
 
+    // GPS 상태
+    const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
+    const [locating, setLocating] = useState(false)
+    const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null)
+
     const [tripInfo, setTripInfo] = useState<any>(null)
     const totalDays = tripInfo
         ? Math.floor(
@@ -32,10 +37,16 @@ export default function TripDetailPage() {
             (1000 * 60 * 60 * 24)
         ) + 1
         : 5
-
     const [totalBudget, setTotalBudget] = useState(0)
     const [budgetInput, setBudgetInput] = useState("0")
     const [budgetSaving, setBudgetSaving] = useState(false)
+
+    // 환율 상태
+    const [exchangeRates, setExchangeRates] = useState<{ [key: string]: number }>({})
+    const [exchangeLoading, setExchangeLoading] = useState(false)
+    const [krwAmount, setKrwAmount] = useState("")
+    const [targetCurrency, setTargetCurrency] = useState("JPY")
+    const [convertedAmount, setConvertedAmount] = useState<number | null>(null)
 
     const [costInputs, setCostInputs] = useState<{ [id: number]: string }>({})
     const [costSaving, setCostSaving] = useState<{ [id: number]: boolean }>({})
@@ -127,13 +138,47 @@ export default function TripDetailPage() {
     }, [tripId])
 
     useEffect(() => {
-        if (!tripId || tripId === 0) return 
+        if (!tripId || tripId === 0) return
         if (rightTab !== "memo") return
         if (memos[selectedDay] !== undefined) return
         api.get(`/trip/${tripId}/day-memo/${selectedDay}`).then((res) => {
             setMemos((prev) => ({ ...prev, [selectedDay]: res.data.memo ?? "" }))
         })
     }, [rightTab, selectedDay, tripId])
+
+    useEffect(() => {
+        if (rightTab === "budget") {
+            loadExchangeRates()
+        }
+    }, [rightTab])
+
+    const getCurrentLocation = () => {
+        if (!navigator.geolocation) {
+            toast.error("GPS를 지원하지 않는 브라우저예요.")
+            return
+        }
+        setLocating(true)
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const loc = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                }
+                setUserLocation(loc)
+                if (mapInstance) {
+                    mapInstance.panTo(loc)
+                    mapInstance.setZoom(15)
+                }
+                toast.success("현재 위치를 찾았어요!")
+                setLocating(false)
+            },
+            () => {
+                toast.error("위치 정보를 가져올 수 없어요.")
+                setLocating(false)
+            },
+            { timeout: 15000, enableHighAccuracy: true, maximumAge: 0 }
+        )
+    }
 
     const createRoute = (day: number) => {
         const places = schedule[day] || []
@@ -201,6 +246,29 @@ export default function TripDetailPage() {
         await refreshTrip()
     }
 
+    // 환율 로드
+    const loadExchangeRates = async () => {
+        if (Object.keys(exchangeRates).length > 0) return // 이미 로드됨
+        setExchangeLoading(true)
+        try {
+            const res = await fetch("https://api.exchangerate-api.com/v4/latest/KRW")
+            const data = await res.json()
+            setExchangeRates(data.rates)
+        } catch {
+            toast.error("환율 정보를 불러오지 못했습니다.")
+        } finally {
+            setExchangeLoading(false)
+        }
+    }
+
+    // 환율 변환
+    const convertCurrency = () => {
+        const amount = Number(krwAmount.replace(/[^0-9]/g, ""))
+        if (!amount || !exchangeRates[targetCurrency]) return
+        const rate = exchangeRates[targetCurrency]
+        setConvertedAmount(Math.round(amount * rate * 100) / 100)
+    }
+
     const saveBudget = async () => {
         const parsed = Number(budgetInput.replace(/[^0-9]/g, ""))
         if (isNaN(parsed)) { toast.error("올바른 금액을 입력해주세요."); return }
@@ -265,7 +333,7 @@ export default function TripDetailPage() {
         totalDurationMin = Math.round(legs.reduce((s: number, l: any) => s + l.duration.value, 0) / 60)
     }
 
-     if (!tripId || tripId === 0) {
+    if (!tripId || tripId === 0) {
         return (
             <main className="max-w-7xl mx-auto p-6">
                 <div className="bg-white border border-[#ECEEF2] rounded-3xl p-12 text-center">
@@ -400,11 +468,33 @@ export default function TripDetailPage() {
                         {/* 지도 */}
                         <div className="border border-[#ECEEF2] rounded-2xl overflow-hidden relative">
                             {isLoaded && (
-                                <GoogleMap mapContainerStyle={{ width: "100%", height: "400px" }} zoom={13} center={{ lat: 35.6764, lng: 139.65 }}>
+                                <GoogleMap
+                                    mapContainerStyle={{ width: "100%", height: "400px" }}
+                                    zoom={13}
+                                    center={{ lat: 35.6764, lng: 139.65 }}
+                                    onLoad={(map) => setMapInstance(map)}
+                                >
                                     {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: true }} />}
                                     {dayPlaces.map((place: any, index: number) => (
                                         <Marker key={index} position={{ lat: place.lat, lng: place.lng }} onClick={() => setSelectedMarker(place)} />
                                     ))}
+
+                                    {/* 현재 위치 마커 */}
+                                    {userLocation && (
+                                        <Marker
+                                            position={userLocation}
+                                            icon={{
+                                                path: google.maps.SymbolPath.CIRCLE,
+                                                scale: 10,
+                                                fillColor: "#4285F4",
+                                                fillOpacity: 1,
+                                                strokeColor: "#ffffff",
+                                                strokeWeight: 3,
+                                            }}
+                                            title="현재 위치"
+                                        />
+                                    )}
+
                                     {selectedMarker && (
                                         <InfoWindow position={{ lat: selectedMarker.lat, lng: selectedMarker.lng }} onCloseClick={() => setSelectedMarker(null)}>
                                             <div className="w-[200px]">
@@ -419,9 +509,36 @@ export default function TripDetailPage() {
                                     )}
                                 </GoogleMap>
                             )}
-                            <button onClick={() => createRoute(selectedDay)} className="absolute bottom-3 right-3 flex items-center gap-1 text-sm text-gray-600 border border-[#ECEEF2] bg-white rounded-full px-3 py-1.5 hover:bg-gray-50 shadow-sm">
-                                ↻ 경로 다시 그리기
-                            </button>
+
+                            {/* 지도 위 버튼들 */}
+                            <div className="absolute bottom-3 right-3 flex flex-col gap-2">
+
+                                {/* GPS 버튼 */}
+                                <button
+                                    onClick={getCurrentLocation}
+                                    disabled={locating}
+                                    title="현재 위치"
+                                    className={`w-10 h-10 rounded-xl shadow-md flex items-center justify-center text-lg transition ${locating
+                                            ? "bg-white text-gray-400"
+                                            : userLocation
+                                                ? "bg-blue-500 text-white"
+                                                : "bg-white text-gray-600 hover:bg-gray-50"
+                                        }`}
+                                >
+                                    {locating ? (
+                                        <span className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
+                                    ) : "📍"}
+                                </button>
+
+                                {/* 경로 다시 그리기 버튼 */}
+                                <button
+                                    onClick={() => createRoute(selectedDay)}
+                                    className="flex items-center gap-1 text-sm text-gray-600 border border-[#ECEEF2] bg-white rounded-xl px-3 py-2 hover:bg-gray-50 shadow-md"
+                                >
+                                    ↻ 경로
+                                </button>
+
+                            </div>
                         </div>
 
                         {/* 일정 리스트 */}
@@ -592,6 +709,88 @@ export default function TripDetailPage() {
                                         <span>총 예산을 먼저 입력하고 저장하면 진행률을 확인할 수 있어요!</span>
                                     </div>
                                 )}
+                                {/* 환율 계산기 */}
+                                <div className="border border-[#ECEEF2] rounded-xl p-4">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="text-sm font-semibold text-gray-700">환율 계산기</div>
+                                        {exchangeLoading && (
+                                            <span className="text-xs text-blue-400 animate-pulse">환율 로딩 중...</span>
+                                        )}
+                                        {!exchangeLoading && Object.keys(exchangeRates).length > 0 && (
+                                            <span className="text-xs text-gray-400">실시간 환율 기준</span>
+                                        )}
+                                    </div>
+
+                                    {/* 통화 선택 */}
+                                    <div className="grid grid-cols-3 gap-2 mb-3">
+                                        {[
+                                            { code: "JPY", label: "🇯🇵 엔" },
+                                            { code: "USD", label: "🇺🇸 달러" },
+                                            { code: "EUR", label: "🇪🇺 유로" },
+                                            { code: "CNY", label: "🇨🇳 위안" },
+                                            { code: "THB", label: "🇹🇭 바트" },
+                                            { code: "HKD", label: "🇭🇰 홍콩달러" },
+                                            { code: "SGD", label: "🇸🇬 싱가포르" },
+                                            { code: "GBP", label: "🇬🇧 파운드" },
+                                            { code: "AUD", label: "🇦🇺 호주달러" },
+                                        ].map((currency) => (
+                                            <button
+                                                key={currency.code}
+                                                onClick={() => {
+                                                    setTargetCurrency(currency.code)
+                                                    setConvertedAmount(null)
+                                                }}
+                                                className={`px-2 py-1.5 rounded-lg text-xs font-medium transition ${targetCurrency === currency.code
+                                                    ? "bg-blue-500 text-white"
+                                                    : "border border-[#ECEEF2] text-gray-600 hover:bg-gray-50"
+                                                    }`}
+                                            >
+                                                {currency.label}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {/* 입력 */}
+                                    <div className="flex gap-2 items-center">
+                                        <div className="flex-1 flex items-center border border-[#ECEEF2] rounded-xl px-3 py-2 gap-1">
+                                            <span className="text-xs text-gray-400 flex-shrink-0">₩</span>
+                                            <input
+                                                value={krwAmount}
+                                                onChange={(e) => {
+                                                    setKrwAmount(e.target.value.replace(/[^0-9]/g, ""))
+                                                    setConvertedAmount(null)
+                                                }}
+                                                onKeyDown={(e) => e.key === "Enter" && convertCurrency()}
+                                                placeholder="원화 금액 입력"
+                                                className="flex-1 text-sm outline-none"
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={convertCurrency}
+                                            disabled={exchangeLoading || !krwAmount}
+                                            className="px-3 py-2 bg-blue-500 text-white rounded-xl text-sm font-semibold hover:bg-blue-600 disabled:opacity-50"
+                                        >
+                                            변환
+                                        </button>
+                                    </div>
+
+                                    {/* 결과 */}
+                                    {convertedAmount !== null && (
+                                        <div className="mt-3 bg-blue-50 rounded-xl px-4 py-3 text-center">
+                                            <div className="text-xs text-gray-500 mb-1">
+                                                ₩{Number(krwAmount).toLocaleString()} =
+                                            </div>
+                                            <div className="text-xl font-bold text-blue-600">
+                                                {convertedAmount.toLocaleString()} {targetCurrency}
+                                            </div>
+                                            {exchangeRates[targetCurrency] && (
+                                                <div className="text-xs text-gray-400 mt-1">
+                                                    1원 = {exchangeRates[targetCurrency].toFixed(4)} {targetCurrency}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
 
