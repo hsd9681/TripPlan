@@ -147,7 +147,7 @@ export default function LoginPage() {
                 <div className="flex justify-center gap-4">
                     {/* 구글 */}
                     <button
-                        onClick={() => { window.location.href = "http://localhost:8000/auth/google" }}
+                        onClick={() => { window.location.href =`${process.env.NEXT_PUBLIC_API_URL}/auth/google` }}
                         className="w-12 h-12 rounded-full border border-[#ECEEF2] flex items-center justify-center hover:bg-gray-50 transition"
                         title="구글로 로그인"
                     >
@@ -156,7 +156,7 @@ export default function LoginPage() {
 
                     {/* 카카오 */}
                     <button
-                        onClick={() => { window.location.href = "http://localhost:8000/auth/kakao" }}
+                        onClick={() => { window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/kakao` }}
                         className="w-12 h-12 rounded-full bg-[#FEE500] flex items-center justify-center hover:bg-[#F6DC00] transition"
                         title="카카오로 로그인"
                     >
