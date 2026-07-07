@@ -29,6 +29,7 @@ export default function TripDetailPage() {
     const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
     const [locating, setLocating] = useState(false)
     const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null)
+    const [mapCenter, setMapCenter] = useState({ lat: 35.6764, lng: 139.65 })
 
     const [tripInfo, setTripInfo] = useState<any>(null)
     const totalDays = tripInfo
@@ -40,6 +41,7 @@ export default function TripDetailPage() {
     const [totalBudget, setTotalBudget] = useState(0)
     const [budgetInput, setBudgetInput] = useState("0")
     const [budgetSaving, setBudgetSaving] = useState(false)
+
 
     // 환율 상태
     const [exchangeRates, setExchangeRates] = useState<{ [key: string]: number }>({})
@@ -165,6 +167,7 @@ export default function TripDetailPage() {
                     lng: position.coords.longitude,
                 }
                 setUserLocation(loc)
+                setMapCenter(loc)  // ← 추가
                 if (mapInstance) {
                     mapInstance.panTo(loc)
                     mapInstance.setZoom(15)
@@ -471,12 +474,30 @@ export default function TripDetailPage() {
                                 <GoogleMap
                                     mapContainerStyle={{ width: "100%", height: "400px" }}
                                     zoom={13}
-                                    center={{ lat: 35.6764, lng: 139.65 }}
+                                    center={mapCenter}  // ← state로 변경
                                     onLoad={(map) => setMapInstance(map)}
                                 >
                                     {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: true }} />}
                                     {dayPlaces.map((place: any, index: number) => (
-                                        <Marker key={index} position={{ lat: place.lat, lng: place.lng }} onClick={() => setSelectedMarker(place)} />
+                                        <Marker
+                                            key={index}
+                                            position={{ lat: place.lat, lng: place.lng }}
+                                            onClick={() => setSelectedMarker(place)}
+                                            label={{
+                                                text: String(index + 1),
+                                                color: "#ffffff",
+                                                fontSize: "12px",
+                                                fontWeight: "bold",
+                                            }}
+                                            icon={{
+                                                path: google.maps.SymbolPath.CIRCLE,
+                                                scale: 18,
+                                                fillColor: "#F97316",   // 주황색 (일정 번호 배지와 동일)
+                                                fillOpacity: 1,
+                                                strokeColor: "#ffffff",
+                                                strokeWeight: 2,
+                                            }}
+                                        />
                                     ))}
 
                                     {/* 현재 위치 마커 */}
@@ -519,10 +540,10 @@ export default function TripDetailPage() {
                                     disabled={locating}
                                     title="현재 위치"
                                     className={`w-10 h-10 rounded-xl shadow-md flex items-center justify-center text-lg transition ${locating
-                                            ? "bg-white text-gray-400"
-                                            : userLocation
-                                                ? "bg-blue-500 text-white"
-                                                : "bg-white text-gray-600 hover:bg-gray-50"
+                                        ? "bg-white text-gray-400"
+                                        : userLocation
+                                            ? "bg-blue-500 text-white"
+                                            : "bg-white text-gray-600 hover:bg-gray-50"
                                         }`}
                                 >
                                     {locating ? (
