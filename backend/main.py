@@ -1594,7 +1594,7 @@ def google_login():
     google_auth_url = (
         "https://accounts.google.com/o/oauth2/v2/auth"
         f"?client_id={GOOGLE_CLIENT_ID}"
-        f"&redirect_uri=http://localhost:8000/auth/google/callback"
+        f"&redirect_uri=https://tripplan-production-265c.up.railway.app/auth/google/callback"
         f"&response_type=code"
         f"&scope=openid email profile"
         f"&access_type=offline"
@@ -1614,7 +1614,7 @@ def google_callback(
             "code": code,
             "client_id": GOOGLE_CLIENT_ID,
             "client_secret": GOOGLE_CLIENT_SECRET,
-            "redirect_uri": "http://localhost:8000/auth/google/callback",
+            "redirect_uri": "https://tripplan-production-265c.up.railway.app/auth/google/callback",
             "grant_type": "authorization_code",
         }
     )
