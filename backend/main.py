@@ -1673,7 +1673,7 @@ def kakao_login():
     kakao_auth_url = (
         "https://kauth.kakao.com/oauth/authorize"
         f"?client_id={KAKAO_REST_API_KEY}"
-        f"&redirect_uri=http://localhost:3000/auth/kakao/callback"
+        f"&redirect_uri={FRONTEND_URL}/auth/kakao/callback"
         f"&response_type=code"
     )
     return RedirectResponse(kakao_auth_url)
@@ -1693,7 +1693,7 @@ async def kakao_token(
             "grant_type": "authorization_code",
             "client_id": KAKAO_REST_API_KEY,
             "client_secret": KAKAO_CLIENT_SECRET,
-            "redirect_uri": "http://localhost:3000/auth/kakao/callback",
+            "redirect_uri": f"{FRONTEND_URL}/auth/kakao/callback",
             "code": code,
         },
         headers={"Content-Type": "application/x-www-form-urlencoded"}
