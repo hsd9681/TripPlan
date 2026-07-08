@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import api from "../../../lib/api"
 import { useTrip } from "../../../context/TripContext"
+import { Place, Trip as TripType } from "../../../types"
 import { useSearchPanel } from "../../../context/SearchPanelContext"
 import {
     GoogleMap,
@@ -31,7 +32,7 @@ export default function TripDetailPage() {
     const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null)
     const [mapCenter, setMapCenter] = useState({ lat: 35.6764, lng: 139.65 })
 
-    const [tripInfo, setTripInfo] = useState<any>(null)
+    const [tripInfo, setTripInfo] = useState<TripType | null>(null)
     const totalDays = tripInfo
         ? Math.floor(
             (new Date(tripInfo.end_date).getTime() - new Date(tripInfo.start_date).getTime()) /
@@ -130,7 +131,7 @@ export default function TripDetailPage() {
             setSchedule(grouped)
 
             const initCosts: { [id: number]: string } = {}
-            res.data.forEach((item: any) => {
+            res.data.forEach((item: Place) => {
                 if (item.name !== "__memo__") {
                     initCosts[item.id] = String(item.cost ?? 0)
                 }
@@ -214,40 +215,40 @@ export default function TripDetailPage() {
         return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`
     }
 
-    const removePlace = async (index: number) => {
-        const place = schedule[selectedDay][index]
-        await api.delete(`/schedule/${place.id}`)
-        const updated = { ...schedule }
-        updated[selectedDay] = updated[selectedDay].filter((_: any, i: number) => i !== index)
-        setSchedule(updated)
-        toast.success("일정이 삭제되었습니다.")
-        await refreshTrip()
-    }
+const removePlace = async (index: number) => {
+    const place = schedule[selectedDay][index] as Place
+    await api.delete(`/schedule/${place.id}`)
+    const updated = { ...schedule }
+    updated[selectedDay] = updated[selectedDay].filter((_: Place, i: number) => i !== index)
+    setSchedule(updated)
+    toast.success("일정이 삭제되었습니다.")
+    await refreshTrip()
+}
 
-    const moveUp = async (index: number) => {
-        if (index === 0) return
-        const updated = { ...schedule }
-        const day = [...updated[selectedDay]]
-            ;[day[index - 1], day[index]] = [day[index], day[index - 1]]
-        updated[selectedDay] = day
-        setSchedule(updated)
-        await api.put("/schedule/order", day.map((item: any, idx: number) => ({ id: item.id, order_no: idx + 1 })))
-        toast.success("순서가 변경되었습니다.")
-        await refreshTrip()
-    }
+const moveUp = async (index: number) => {
+    if (index === 0) return
+    const updated = { ...schedule }
+    const day = [...updated[selectedDay]] as Place[]
+    ;[day[index - 1], day[index]] = [day[index], day[index - 1]]
+    updated[selectedDay] = day
+    setSchedule(updated)
+    await api.put("/schedule/order", day.map((item: Place, idx: number) => ({ id: item.id, order_no: idx + 1 })))
+    toast.success("순서가 변경되었습니다.")
+    await refreshTrip()
+}
 
-    const moveDown = async (index: number) => {
-        const day = schedule[selectedDay] || []
-        if (index === day.length - 1) return
-        const updated = { ...schedule }
-        const copied = [...day]
-            ;[copied[index], copied[index + 1]] = [copied[index + 1], copied[index]]
-        updated[selectedDay] = copied
-        setSchedule(updated)
-        await api.put("/schedule/order", copied.map((item: any, idx: number) => ({ id: item.id, order_no: idx + 1 })))
-        toast.success("순서가 변경되었습니다.")
-        await refreshTrip()
-    }
+const moveDown = async (index: number) => {
+    const day = (schedule[selectedDay] || []) as Place[]
+    if (index === day.length - 1) return
+    const updated = { ...schedule }
+    const copied = [...day] as Place[]
+    ;[copied[index], copied[index + 1]] = [copied[index + 1], copied[index]]
+    updated[selectedDay] = copied
+    setSchedule(updated)
+    await api.put("/schedule/order", copied.map((item: Place, idx: number) => ({ id: item.id, order_no: idx + 1 })))
+    toast.success("순서가 변경되었습니다.")
+    await refreshTrip()
+}
 
     // 환율 로드
     const loadExchangeRates = async () => {
@@ -321,8 +322,8 @@ export default function TripDetailPage() {
         }, 1000)
     }
 
-    const dayPlaces = (schedule[selectedDay] || []) as any[]
-    const allPlaces = Object.values(schedule).flat() as any[]
+    const dayPlaces = (schedule[selectedDay] || []) as Place[]
+    const allPlaces = Object.values(schedule).flat() as Place[]
     const totalUsed = allPlaces.reduce((sum: number, p: any) => sum + (p.cost ?? 0), 0)
     const remaining = totalBudget - totalUsed
     const progress = totalBudget > 0 ? Math.min(100, Math.round((totalUsed / totalBudget) * 100)) : 0
@@ -478,7 +479,7 @@ export default function TripDetailPage() {
                                     onLoad={(map) => setMapInstance(map)}
                                 >
                                     {directions && <DirectionsRenderer directions={directions} options={{ suppressMarkers: true }} />}
-                                    {dayPlaces.map((place: any, index: number) => (
+                                    {dayPlaces.map((place: Place, index: number) => (
                                         <Marker
                                             key={index}
                                             position={{ lat: place.lat, lng: place.lng }}
