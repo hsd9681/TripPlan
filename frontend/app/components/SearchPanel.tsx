@@ -80,7 +80,6 @@ export default function SearchPanel() {
         setLocating(true)
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                console.log(position.coords)
                 const loc = {
                     lat: position.coords.latitude,
                     lng: position.coords.longitude
