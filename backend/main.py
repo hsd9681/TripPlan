@@ -141,7 +141,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "https://trip-plan-indol.vercel.app"
+        "http://localhost:8000",
+        "https://trip-plan-indol.vercel.app",
+        "https://tripplan-production-265c.up.railway.app"
     ],
     allow_credentials=True,
     allow_methods=["*"],
