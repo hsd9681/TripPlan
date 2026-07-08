@@ -138,19 +138,14 @@ KAKAO_CLIENT_SECRET = os.getenv("KAKAO_CLIENT_SECRET")
 app = FastAPI()
 
 app.add_middleware(
-
     CORSMiddleware,
-
     allow_origins=[
-        "http://localhost:3000"
+        "http://localhost:3000",
+        "https://trip-plan-indol.vercel.app"
     ],
-
     allow_credentials=True,
-
     allow_methods=["*"],
-
     allow_headers=["*"]
-
 )
 
 
@@ -1658,8 +1653,8 @@ def google_callback(
         key="access_token",
         value=jwt_token,
         httponly=True,
-        samesite="lax",
-        secure=False
+        samesite="none",
+        secure=True
     )
 
     return response
