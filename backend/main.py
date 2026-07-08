@@ -14,6 +14,7 @@ from fastapi import Depends
 from models.trip import Trip
 from models.schedule import Schedule
 from models.user import User
+from database import Base, engine
 
 import httpx
 from fastapi.responses import RedirectResponse
@@ -136,6 +137,9 @@ KAKAO_REST_API_KEY = os.getenv("KAKAO_REST_API_KEY")
 KAKAO_CLIENT_SECRET = os.getenv("KAKAO_CLIENT_SECRET")
 
 app = FastAPI()
+
+#테이블 자동 생성
+Base.metadata.create_all(bind=engine)
 
 app.add_middleware(
     CORSMiddleware,
