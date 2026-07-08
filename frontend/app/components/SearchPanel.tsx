@@ -311,7 +311,7 @@ export default function SearchPanel() {
                                 >
                                     {place.photos?.[0] && (
                                         <img
-                                            src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${place.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY}`}
+                                            src={`${process.env.NEXT_PUBLIC_API_URL}/place-photo?photo_reference=${place.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY}`}
                                             alt={place.name}
                                             className="w-full h-40 object-cover rounded-xl mb-3"
                                         />
@@ -344,8 +344,8 @@ export default function SearchPanel() {
                                             key={category}
                                             onClick={() => searchByCategory(category)}
                                             className={`px-4 py-2 rounded-full shadow-md text-sm font-medium border transition ${selectedCategory === category
-                                                    ? "bg-blue-500 text-white border-blue-500"
-                                                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                                                ? "bg-blue-500 text-white border-blue-500"
+                                                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
                                                 }`}
                                         >
                                             {category}
@@ -411,10 +411,10 @@ export default function SearchPanel() {
                                     disabled={locating}
                                     title="현재 위치"
                                     className={`w-10 h-10 rounded-xl shadow-md flex items-center justify-center text-lg transition ${locating
-                                            ? "bg-white text-gray-400"
-                                            : userLocation
-                                                ? "bg-blue-500 text-white"
-                                                : "bg-white text-gray-600 hover:bg-gray-50"
+                                        ? "bg-white text-gray-400"
+                                        : userLocation
+                                            ? "bg-blue-500 text-white"
+                                            : "bg-white text-gray-600 hover:bg-gray-50"
                                         }`}
                                 >
                                     {locating ? (
@@ -437,7 +437,7 @@ export default function SearchPanel() {
 
                                     {selectedPlace.photos?.[0] && (
                                         <img
-                                            src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=1200&photo_reference=${selectedPlace.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY}`}
+                                            src={`${process.env.NEXT_PUBLIC_API_URL}/place-photo?photo_reference=${selectedPlace.photos[0].photo_reference}`}
                                             alt={selectedPlace.name}
                                             className="w-full h-64 object-cover"
                                         />

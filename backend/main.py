@@ -16,6 +16,7 @@ from models.schedule import Schedule
 from models.user import User
 from database import Base, engine
 
+from fastapi.responses import StreamingResponse
 import httpx
 from fastapi.responses import RedirectResponse
 from groq import Groq
@@ -1744,3 +1745,17 @@ async def kakao_token(
             "nickname": user.nickname,
         }
     }
+
+@app.get("/place-photo")
+def place_photo(photo_reference: str):
+    url = (
+        f"https://maps.googleapis.com/maps/api/place/photo"
+        f"?maxwidth=400"
+        f"&photo_reference={photo_reference}"
+        f"&key={MAPS_API_KEY}"
+    )
+    response = httpx.get(url, follow_redirects=True)
+    return StreamingResponse(
+        iter([response.content]),
+        media_type=response.headers.get("content-type", "image/jpeg")
+    )

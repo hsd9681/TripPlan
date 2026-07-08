@@ -576,7 +576,11 @@ export default function TripDetailPage() {
                                         <span className="text-gray-300 select-none text-xs">⋮⋮</span>
                                         <span className="w-6 h-6 flex-shrink-0 rounded-full bg-orange-400 text-white text-xs font-bold flex items-center justify-center">{index + 1}</span>
                                         {place.photo && (
-                                            <img src={`https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photo_reference=${place.photo}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY}`} alt={place.name} className="w-11 h-11 rounded-lg object-cover flex-shrink-0" />
+                                            <img
+                                                src={`${process.env.NEXT_PUBLIC_API_URL}/place-photo?photo_reference=${place.photo}`}
+                                                alt={place.name}
+                                                className="w-11 h-11 rounded-lg object-cover flex-shrink-0"
+                                            />
                                         )}
                                         <div className="flex-1 min-w-0">
                                             <div className="font-semibold text-sm truncate">{place.name}</div>
