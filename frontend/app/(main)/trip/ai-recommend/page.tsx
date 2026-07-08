@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import api from "../../../lib/api"
 import { toast } from "react-hot-toast"
+import { useTrip } from "../../../context/TripContext"
 
 type Step = "input" | "loading" | "done"
 
@@ -25,13 +26,14 @@ export default function AiRecommendPage() {
     const [people, setPeople] = useState(1)
     const [resultTitle, setResultTitle] = useState("")
     const [loadingIdx, setLoadingIdx] = useState(0)
+    const { setCurrentTrip } = useTrip()
 
     const totalDays =
         startDate && endDate
             ? Math.floor(
-                  (new Date(endDate).getTime() - new Date(startDate).getTime()) /
-                      (1000 * 60 * 60 * 24)
-              ) + 1
+                (new Date(endDate).getTime() - new Date(startDate).getTime()) /
+                (1000 * 60 * 60 * 24)
+            ) + 1
             : 0
 
     const handleSubmit = async () => {
@@ -76,9 +78,14 @@ export default function AiRecommendPage() {
             setResultTitle(res.data.title)
             setStep("done")
 
-            // 완료 후 → result 목록으로 이동 (사용자가 목록에서 확인 후 상세 진입)
+            // 생성된 여행을 currentTrip에 바로 반영
+            try {
+                const upcoming = await api.get("/trip/upcoming")
+                setCurrentTrip(upcoming.data)
+            } catch { }
+
             setTimeout(() => {
-                router.push("/trip/result")
+                router.push("/")  // result 대신 홈으로 이동
             }, 1500)
 
         } catch {
