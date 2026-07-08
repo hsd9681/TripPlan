@@ -57,6 +57,10 @@ export default function SettingsPage() {
                 current_password: currentPw,
                 new_password: newPw,
             })
+            if (res.data.message === "social login user") {
+                toast.error("소셜 로그인 계정은 비밀번호를 변경할 수 없습니다.")
+                return
+            }
             if (res.data.message === "wrong password") {
                 toast.error("현재 비밀번호가 올바르지 않습니다.")
                 return

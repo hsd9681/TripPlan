@@ -35,6 +35,7 @@ export default function TripResultPage() {
     const router = useRouter()
     const [trips, setTrips] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+    const [deletingId, setDeletingId] = useState<number | null>(null)
 
     useEffect(() => {
         api.get("/me")
@@ -48,12 +49,14 @@ export default function TripResultPage() {
             })
     }, [])
 
-    const deleteTrip = async (e: React.MouseEvent, tripId: number) => {
-        e.stopPropagation()
-        if (!confirm("정말 삭제하시겠습니까?\n삭제된 여행은 복구할 수 없습니다.")) return
+    // 변경 후 — confirm 제거하고 삭제 확인 state로 처리
+    const [deletingId, setDeletingId] = useState<number | null>(null)
+
+    const deleteTrip = async (tripId: number) => {
         try {
             await api.delete(`/trip/${tripId}`)
             setTrips(trips.filter((t: any) => t.id !== tripId))
+            setDeletingId(null)
             toast.success("여행이 삭제되었습니다.")
         } catch {
             toast.error("삭제에 실패했습니다.")
@@ -141,12 +144,29 @@ export default function TripResultPage() {
                                         {status}
                                     </span>
                                     {/* 삭제 버튼 */}
-                                    <button
-                                        className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-red-500 transition"
-                                        onClick={(e) => deleteTrip(e, trip.id)}
-                                    >
-                                        ×
-                                    </button>
+                                    {deletingId === trip.id ? (
+                                        <div className="absolute top-3 right-3 flex gap-1">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); deleteTrip(trip.id) }}
+                                                className="px-2 py-1 rounded-lg bg-red-500 text-white text-xs font-semibold"
+                                            >
+                                                삭제
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setDeletingId(null) }}
+                                                className="px-2 py-1 rounded-lg bg-gray-200 text-gray-600 text-xs font-semibold"
+                                            >
+                                                취소
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-red-500 transition"
+                                            onClick={(e) => { e.stopPropagation(); setDeletingId(trip.id) }}
+                                        >
+                                            ×
+                                        </button>
+                                    )}
                                 </div>
 
                                 <div className="p-5">

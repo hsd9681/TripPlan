@@ -16,6 +16,7 @@ from database import get_db, Base, engine
 from models.trip import Trip
 from models.schedule import Schedule
 from models.user import User
+from passlib.context import CryptContext
 
 load_dotenv()
 
@@ -34,6 +35,7 @@ KAKAO_REST_API_KEY = os.getenv("KAKAO_REST_API_KEY")
 KAKAO_CLIENT_SECRET = os.getenv("KAKAO_CLIENT_SECRET")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # ──────────────────────────────────────────
 # 앱 초기화
@@ -170,7 +172,7 @@ def route(origin: str, destination: str):
 def signup(user: dict, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == user["email"]).first():
         return {"message": "email exists"}
-    new_user = User(email=user["email"], password=user["password"], nickname=user["nickname"])
+    new_user = User(email=user["email"],password=pwd_context.hash(user["password"]),nickname=user["nickname"])
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -182,7 +184,7 @@ def login(user: dict, response: Response, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user["email"]).first()
     if not db_user:
         return {"message": "user not found"}
-    if db_user.password != user["password"]:
+    if not pwd_context.verify(user["password"], db_user.password):
         return {"message": "wrong password"}
 
     token = create_access_token(db_user.id)
@@ -229,9 +231,14 @@ def update_nickname(data: dict, current_user: User = Depends(get_current_user), 
 def update_password(data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if not current_user:
         return {"message": "unauthorized"}
-    if current_user.password != data.get("current_password"):
+
+    if current_user.password in ["GOOGLE_OAUTH", "KAKAO_OAUTH"]:
+        return {"message": "social login user"}
+
+    if not pwd_context.verify(data.get("current_password", ""), current_user.password):
         return {"message": "wrong password"}
-    current_user.password = data.get("new_password")
+
+    current_user.password = pwd_context.hash(data.get("new_password"))
     db.commit()
     return {"message": "success"}
 

@@ -9,3 +9,4 @@ google-genai
 groq
 anthropic
 requests
+passlib[bcrypt]
