@@ -10,8 +10,8 @@ export interface Place {
     rating: number | null
     address: string
     duration: number
-    lat: number | null   // ← null 허용으로 변경
-    lng: number | null   // ← null 허용으로 변경
+    lat: number 
+    lng: number 
     memo: string | null
     cost: number
 }
