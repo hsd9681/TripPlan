@@ -10,8 +10,8 @@ export interface Place {
     rating: number | null
     address: string
     duration: number
-    lat: number
-    lng: number
+    lat: number | null   // ← null 허용으로 변경
+    lng: number | null   // ← null 허용으로 변경
     memo: string | null
     cost: number
 }
@@ -24,13 +24,13 @@ export interface Trip {
     start_date: string
     end_date: string
     people: number
-    budget: number
+    budget: number | null  // ← null 허용으로 변경
     created_at: string
     progress?: number
 }
 
 export interface User {
-    id: number
-    email: string
+    id?: number            // ← optional로 변경
+    email?: string         // ← optional로 변경
     nickname: string
 }

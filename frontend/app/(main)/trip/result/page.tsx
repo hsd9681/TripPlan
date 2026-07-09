@@ -35,7 +35,7 @@ export default function TripResultPage() {
     const router = useRouter()
     const [trips, setTrips] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
-    const [deletingId, setDeletingId] = useState<number | null>(null)
+    
 
     useEffect(() => {
         api.get("/me")

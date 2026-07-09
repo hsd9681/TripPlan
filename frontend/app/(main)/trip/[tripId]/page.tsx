@@ -23,8 +23,8 @@ export default function TripDetailPage() {
 
     const [rightTab, setRightTab] = useState<"schedule" | "budget" | "memo">("schedule")
     const [selectedDay, setSelectedDay] = useState(1)
-    const [directions, setDirections] = useState<any>(null)
-    const [selectedMarker, setSelectedMarker] = useState<any>(null)
+    const [directions, setDirections] = useState<google.maps.DirectionsResult | null>(null)
+    const [selectedMarker, setSelectedMarker] = useState<Place | null>(null)
 
     // GPS 상태
     const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
@@ -33,6 +33,7 @@ export default function TripDetailPage() {
     const [mapCenter, setMapCenter] = useState({ lat: 35.6764, lng: 139.65 })
 
     const [tripInfo, setTripInfo] = useState<TripType | null>(null)
+
     const totalDays = tripInfo
         ? Math.floor(
             (new Date(tripInfo.end_date).getTime() - new Date(tripInfo.start_date).getTime()) /
@@ -98,7 +99,7 @@ export default function TripDetailPage() {
         if (!titleInput.trim()) { toast.error("여행 이름을 입력해주세요."); return }
         try {
             await api.put(`/trip/${tripId}/title`, { title: titleInput.trim() })
-            setTripInfo((prev: any) => ({ ...prev, title: titleInput.trim() }))
+            setTripInfo((prev) => prev ? { ...prev, title: titleInput.trim() } : prev)
             setIsEditingTitle(false)
             toast.success("여행 이름이 수정되었습니다.")
         } catch {
@@ -122,8 +123,8 @@ export default function TripDetailPage() {
             if (res.data.message === "unauthorized") { router.push("/login"); return }
             if (res.data.message === "forbidden") { router.push("/trip/result"); return }
 
-            const grouped: any = {}
-            res.data.forEach((item: any) => {
+            const grouped: { [day: number]: Place[] } = {}
+            res.data.forEach((item: Place) => {
                 if (item.name === "__memo__") return
                 grouped[item.day_number] ??= []
                 grouped[item.day_number].push(item)
@@ -190,7 +191,7 @@ export default function TripDetailPage() {
 
         const origin = { lat: places[0].lat, lng: places[0].lng }
         const destination = { lat: places[places.length - 1].lat, lng: places[places.length - 1].lng }
-        const waypoints = places.slice(1, places.length - 1).map((p: any) => ({
+        const waypoints = places.slice(1, places.length - 1).map((p: Place) => ({
             location: { lat: p.lat, lng: p.lng },
             stopover: true,
         }))
@@ -203,52 +204,52 @@ export default function TripDetailPage() {
 
     useEffect(() => { createRoute(selectedDay) }, [selectedDay, schedule])
 
-    const calculateTime = (items: any[], index: number) => {
+    const calculateTime = (items: Place[], index: number) => {
         let minutes = 9 * 60
         for (let i = 0; i < index; i++) minutes += items[i].duration
         return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`
     }
 
-    const calculateEndTime = (items: any[], index: number) => {
+    const calculateEndTime = (items: Place[], index: number) => {
         let minutes = 9 * 60
         for (let i = 0; i <= index; i++) minutes += items[i].duration
         return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`
     }
 
-const removePlace = async (index: number) => {
-    const place = schedule[selectedDay][index] as Place
-    await api.delete(`/schedule/${place.id}`)
-    const updated = { ...schedule }
-    updated[selectedDay] = updated[selectedDay].filter((_: Place, i: number) => i !== index)
-    setSchedule(updated)
-    toast.success("일정이 삭제되었습니다.")
-    await refreshTrip()
-}
+    const removePlace = async (index: number) => {
+        const place = schedule[selectedDay][index] as Place
+        await api.delete(`/schedule/${place.id}`)
+        const updated = { ...schedule }
+        updated[selectedDay] = updated[selectedDay].filter((_: Place, i: number) => i !== index)
+        setSchedule(updated)
+        toast.success("일정이 삭제되었습니다.")
+        await refreshTrip()
+    }
 
-const moveUp = async (index: number) => {
-    if (index === 0) return
-    const updated = { ...schedule }
-    const day = [...updated[selectedDay]] as Place[]
-    ;[day[index - 1], day[index]] = [day[index], day[index - 1]]
-    updated[selectedDay] = day
-    setSchedule(updated)
-    await api.put("/schedule/order", day.map((item: Place, idx: number) => ({ id: item.id, order_no: idx + 1 })))
-    toast.success("순서가 변경되었습니다.")
-    await refreshTrip()
-}
+    const moveUp = async (index: number) => {
+        if (index === 0) return
+        const updated = { ...schedule }
+        const day = [...updated[selectedDay]] as Place[]
+            ;[day[index - 1], day[index]] = [day[index], day[index - 1]]
+        updated[selectedDay] = day
+        setSchedule(updated)
+        await api.put("/schedule/order", day.map((item: Place, idx: number) => ({ id: item.id, order_no: idx + 1 })))
+        toast.success("순서가 변경되었습니다.")
+        await refreshTrip()
+    }
 
-const moveDown = async (index: number) => {
-    const day = (schedule[selectedDay] || []) as Place[]
-    if (index === day.length - 1) return
-    const updated = { ...schedule }
-    const copied = [...day] as Place[]
-    ;[copied[index], copied[index + 1]] = [copied[index + 1], copied[index]]
-    updated[selectedDay] = copied
-    setSchedule(updated)
-    await api.put("/schedule/order", copied.map((item: Place, idx: number) => ({ id: item.id, order_no: idx + 1 })))
-    toast.success("순서가 변경되었습니다.")
-    await refreshTrip()
-}
+    const moveDown = async (index: number) => {
+        const day = (schedule[selectedDay] || []) as Place[]
+        if (index === day.length - 1) return
+        const updated = { ...schedule }
+        const copied = [...day] as Place[]
+            ;[copied[index], copied[index + 1]] = [copied[index + 1], copied[index]]
+        updated[selectedDay] = copied
+        setSchedule(updated)
+        await api.put("/schedule/order", copied.map((item: Place, idx: number) => ({ id: item.id, order_no: idx + 1 })))
+        toast.success("순서가 변경되었습니다.")
+        await refreshTrip()
+    }
 
     // 환율 로드
     const loadExchangeRates = async () => {
@@ -294,7 +295,7 @@ const moveDown = async (index: number) => {
         try {
             await api.put(`/schedule/${scheduleId}/cost`, { cost: parsed })
             const updated = { ...schedule }
-            updated[selectedDay] = updated[selectedDay].map((p: any) =>
+            updated[selectedDay] = updated[selectedDay].map((p: Place) =>
                 p.id === scheduleId ? { ...p, cost: parsed } : p
             )
             setSchedule(updated)
@@ -324,17 +325,17 @@ const moveDown = async (index: number) => {
 
     const dayPlaces = (schedule[selectedDay] || []) as Place[]
     const allPlaces = Object.values(schedule).flat() as Place[]
-    const totalUsed = allPlaces.reduce((sum: number, p: any) => sum + (p.cost ?? 0), 0)
+    const totalUsed = allPlaces.reduce((sum: number, p: Place) => sum + (p.cost ?? 0), 0)
     const remaining = totalBudget - totalUsed
     const progress = totalBudget > 0 ? Math.min(100, Math.round((totalUsed / totalBudget) * 100)) : 0
-    const dayUsed = dayPlaces.reduce((sum: number, p: any) => sum + (p.cost ?? 0), 0)
+    const dayUsed = dayPlaces.reduce((sum: number, p: Place) => sum + (p.cost ?? 0), 0)
 
     let totalDistanceKm: number | null = null
     let totalDurationMin: number | null = null
     if (directions?.routes?.[0]?.legs) {
         const legs = directions.routes[0].legs
-        totalDistanceKm = legs.reduce((s: number, l: any) => s + l.distance.value, 0) / 1000
-        totalDurationMin = Math.round(legs.reduce((s: number, l: any) => s + l.duration.value, 0) / 60)
+        totalDistanceKm = legs.reduce((s: number, l: google.maps.DirectionsLeg) => s + l.distance!.value, 0) / 1000
+        totalDurationMin = Math.round(legs.reduce((s: number, l: google.maps.DirectionsLeg) => s + l.duration!.value, 0) / 60)
     }
 
     if (!tripId || tripId === 0) {
@@ -572,7 +573,7 @@ const moveDown = async (index: number) => {
                                 )}
                             </div>
                             <div className="space-y-0">
-                                {dayPlaces.map((place: any, index: number) => (
+                                {dayPlaces.map((place: Place, index: number) => (
                                     <div key={place.id} className="flex items-center gap-3 py-3 border-b border-[#F1F2F5] last:border-b-0">
                                         <span className="text-gray-300 select-none text-xs">⋮⋮</span>
                                         <span className="w-6 h-6 flex-shrink-0 rounded-full bg-orange-400 text-white text-xs font-bold flex items-center justify-center">{index + 1}</span>
@@ -627,12 +628,12 @@ const moveDown = async (index: number) => {
                                     <div className="border border-[#ECEEF2] rounded-xl p-3">
                                         <div className="text-xs text-gray-400">총 소요시간</div>
                                         <div className="text-xl font-bold mt-1">
-                                            {Math.floor(dayPlaces.reduce((s: number, p: any) => s + (p.duration || 0), 0) / 60)}h {dayPlaces.reduce((s: number, p: any) => s + (p.duration || 0), 0) % 60}m
+                                            {Math.floor(dayPlaces.reduce((s: number, p: Place) => s + (p.duration || 0), 0) / 60)}h {dayPlaces.reduce((s: number, p: Place) => s + (p.duration || 0), 0) % 60}m
                                         </div>
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    {dayPlaces.map((place: any, i: number) => (
+                                    {dayPlaces.map((place: Place, i: number) => (
                                         <div key={place.id} className="flex items-center gap-2 text-sm border border-[#F1F2F5] rounded-lg px-3 py-2">
                                             <span className="w-5 h-5 rounded-full bg-orange-400 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                                             <span className="truncate">{place.name}</span>
@@ -697,7 +698,7 @@ const moveDown = async (index: number) => {
                                         <div className="text-sm text-gray-400 text-center py-4">등록된 일정이 없습니다.</div>
                                     ) : (
                                         <div className="space-y-2">
-                                            {dayPlaces.map((place: any, i: number) => (
+                                            {dayPlaces.map((place: Place, i: number) => (
                                                 <div key={place.id} className="flex items-center gap-2">
                                                     <span className="w-5 h-5 rounded-full bg-orange-400 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0">{i + 1}</span>
                                                     <span className="flex-1 text-xs truncate">{place.name}</span>
