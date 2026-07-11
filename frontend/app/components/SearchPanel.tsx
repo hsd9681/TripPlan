@@ -3,13 +3,11 @@
 import { useEffect, useState } from "react"
 import api from "../lib/api"
 import { useParams } from "next/navigation"
-import { GoogleMap, Polyline, Marker, useJsApiLoader, InfoWindow } from "@react-google-maps/api"
-import { decode } from "@googlemaps/polyline-codec"
+import { GoogleMap, Polyline, Marker, DirectionsRenderer, useJsApiLoader } from "@react-google-maps/api"
 import { useSearchPanel } from "../context/SearchPanelContext"
 import { useTrip } from "../context/TripContext"
 import { toast } from "react-hot-toast"
 
-// 날씨 아이콘 매핑
 const getWeatherEmoji = (code: number) => {
     if (code === 0) return "☀️"
     if (code <= 2) return "⛅"
@@ -35,14 +33,13 @@ export default function SearchPanel() {
         refreshTrip
     } = useTrip()
 
-    const [distance, setDistance] = useState("")
-    const [duration, setDuration] = useState("")
-    const [mapCenter, setMapCenter] = useState({ lat: 35.6764, lng: 139.6500 })
-    const [path, setPath] = useState<any[]>([])
+    // 지도 상태
+    const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null)
     const [map, setMap] = useState<google.maps.Map | null>(null)
+    const [path, setPath] = useState<{ lat: number; lng: number }[]>([])
+
+    // 검색 상태
     const [query, setQuery] = useState("")
-    const [origin, setOrigin] = useState("")
-    const [destination, setDestination] = useState("")
     const [places, setPlaces] = useState<any[]>([])
     const [markers, setMarkers] = useState<any[]>([])
     const [selectedCategory, setSelectedCategory] = useState("전체")
@@ -51,11 +48,19 @@ export default function SearchPanel() {
     // GPS 상태
     const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
     const [locating, setLocating] = useState(false)
-    const [userMarker, setUserMarker] = useState<any>(null)
+    const [userMarker, setUserMarker] = useState<{ lat: number; lng: number } | null>(null)
 
     // 날씨 상태
     const [weather, setWeather] = useState<any>(null)
     const [weatherLoading, setWeatherLoading] = useState(false)
+
+    // 길찾기 상태
+    const [routeMode, setRouteMode] = useState(false)
+    const [routeOrigin, setRouteOrigin] = useState("")
+    const [routeDestination, setRouteDestination] = useState("")
+    const [routeDirections, setRouteDirections] = useState<google.maps.DirectionsResult | null>(null)
+    const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null)
+    const [routeLoading, setRouteLoading] = useState(false)
 
     const categories = ["전체", "맛집", "카페", "관광지", "쇼핑", "숙소"]
 
@@ -63,20 +68,40 @@ export default function SearchPanel() {
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY!
     })
 
+    // ── 패널 열릴 때 초기 위치 설정 ──
     useEffect(() => {
-        if (!map || path.length === 0) return
-        const bounds = new google.maps.LatLngBounds()
-        path.forEach((p) => bounds.extend(p))
-        map.fitBounds(bounds)
-    }, [map, path])
+        if (!isOpen) return
+        if (mapCenter) return // 이미 설정됨
 
-    // ── GPS 현재 위치 가져오기 ──
+        // GPS 위치 시도
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const loc = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    }
+                    setMapCenter(loc)
+                    setUserLocation(loc)
+                    setUserMarker(loc)
+                },
+                () => {
+                    // GPS 실패 시 서울 기본값
+                    setMapCenter({ lat: 37.5665, lng: 126.9780 })
+                },
+                { timeout: 5000, enableHighAccuracy: true }
+            )
+        } else {
+            setMapCenter({ lat: 37.5665, lng: 126.9780 })
+        }
+    }, [isOpen])
+
+    // ── GPS 현재 위치 ──
     const getCurrentLocation = () => {
         if (!navigator.geolocation) {
             toast.error("GPS를 지원하지 않는 브라우저예요.")
             return
         }
-
         setLocating(true)
         navigator.geolocation.getCurrentPosition(
             (position) => {
@@ -87,26 +112,23 @@ export default function SearchPanel() {
                 setUserLocation(loc)
                 setMapCenter(loc)
                 setUserMarker(loc)
-
                 if (map) {
                     map.panTo(loc)
                     map.setZoom(15)
                 }
-
-                // 날씨도 함께 가져오기
                 fetchWeather(loc.lat, loc.lng)
                 toast.success("현재 위치를 찾았어요!")
                 setLocating(false)
             },
-            (err) => {
-                toast.error("위치 정보를 가져올 수 없어요. 브라우저 위치 권한을 확인해주세요.")
+            () => {
+                toast.error("위치 정보를 가져올 수 없어요.")
                 setLocating(false)
             },
-            { timeout: 10000, enableHighAccuracy: true }
+            { timeout: 15000, enableHighAccuracy: true, maximumAge: 0 }
         )
     }
 
-    // ── 날씨 가져오기 (Open-Meteo API - 무료, 키 불필요) ──
+    // ── 날씨 ──
     const fetchWeather = async (lat: number, lng: number) => {
         setWeatherLoading(true)
         try {
@@ -116,18 +138,17 @@ export default function SearchPanel() {
             const data = await res.json()
             const current = data.current
 
-            // 역지오코딩으로 도시명 가져오기
             let cityName = "현재 위치"
             try {
                 const geoRes = await fetch(
-                    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ko`
+                    `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ko&zoom=14`
                 )
                 const geoData = await geoRes.json()
+                const addr = geoData.address || {}
                 cityName =
-                    geoData.address?.city ||
-                    geoData.address?.town ||
-                    geoData.address?.county ||
-                    "현재 위치"
+                    addr.suburb || addr.quarter || addr.city_district ||
+                    addr.borough || addr.district || addr.city ||
+                    addr.town || addr.county || addr.state || "현재 위치"
             } catch { }
 
             setWeather({
@@ -161,33 +182,22 @@ export default function SearchPanel() {
                 map.panTo(newCenter)
                 map.setZoom(15)
             }
-        } catch (err) {
-            console.error(err)
-        }
+        } catch { }
     }
 
-    // ── 카테고리 검색 (현재 위치 or 지도 중심) ──
+    // ── 카테고리 검색 ──
     const searchByCategory = async (category: string) => {
         if (!map) return
         setSelectedCategory(category)
-
-        // 현재 위치가 있으면 현재 위치 기준, 없으면 지도 중심 기준
         const center = userLocation || map.getCenter()?.toJSON()
         if (!center) return
-
         try {
             const res = await api.get("nearby", {
-                params: {
-                    lat: center.lat,
-                    lng: center.lng,
-                    category
-                }
+                params: { lat: center.lat, lng: center.lng, category }
             })
             setPlaces(res.data.results)
             setMarkers(res.data.results)
-        } catch (err) {
-            console.error(err)
-        }
+        } catch { }
     }
 
     // ── 장소 상세 ──
@@ -196,6 +206,76 @@ export default function SearchPanel() {
             params: { place_id: place.place_id }
         })
         setSelectedPlace(res.data.result)
+    }
+
+    // ── 길찾기 ──
+    const searchRoute = () => {
+        if (!routeOrigin.trim() || !routeDestination.trim()) {
+            toast.error("출발지와 도착지를 입력해주세요.")
+            return
+        }
+        setRouteLoading(true)
+        setRouteDirections(null)
+        setRouteInfo(null)
+
+        const directionsService = new google.maps.DirectionsService()
+        directionsService.route(
+            {
+                origin: routeOrigin,
+                destination: routeDestination,
+                travelMode: google.maps.TravelMode.TRANSIT,
+            },
+            (result, status) => {
+                setRouteLoading(false)
+                if (status === "OK" && result) {
+                    setRouteDirections(result)
+                    const leg = result.routes[0].legs[0]
+                    setRouteInfo({
+                        distance: leg.distance?.text || "",
+                        duration: leg.duration?.text || ""
+                    })
+                } else {
+                    // 대중교통 실패 시 도보로 재시도
+                    directionsService.route(
+                        {
+                            origin: routeOrigin,
+                            destination: routeDestination,
+                            travelMode: google.maps.TravelMode.WALKING,
+                        },
+                        (result2, status2) => {
+                            if (status2 === "OK" && result2) {
+                                setRouteDirections(result2)
+                                const leg = result2.routes[0].legs[0]
+                                setRouteInfo({
+                                    distance: leg.distance?.text || "",
+                                    duration: `도보 ${leg.duration?.text || ""}`
+                                })
+                            } else {
+                                toast.error("경로를 찾을 수 없어요. 주소를 다시 확인해주세요.")
+                            }
+                        }
+                    )
+                }
+            }
+        )
+    }
+
+    const clearRoute = () => {
+        setRouteDirections(null)
+        setRouteInfo(null)
+        setRouteOrigin("")
+        setRouteDestination("")
+    }
+
+    // ── 현재 위치를 출발지로 설정 ──
+    const setCurrentLocationAsOrigin = () => {
+        if (userLocation) {
+            setRouteOrigin(`${userLocation.lat},${userLocation.lng}`)
+            toast.success("현재 위치를 출발지로 설정했어요.")
+        } else {
+            getCurrentLocation()
+            toast("위치를 찾은 후 출발지로 설정됩니다.")
+        }
     }
 
     const getDefaultDuration = (types: string[]) => {
@@ -214,38 +294,42 @@ export default function SearchPanel() {
         return "관광지"
     }
 
+    // scheduleMode: true면 일정 추가 모드, false면 일반 탐색 모드
+    const isScheduleMode = scheduleMode || editingIndex !== null
+
     return (
         <div className={`transition-all duration-300 overflow-hidden bg-white border-l ${isOpen ? "w-[1200px]" : "w-0"}`}>
             {isOpen && (
                 <div className="h-full flex flex-col bg-white">
 
-                    {/* 검색창 + GPS + 날씨 */}
+                    {/* 상단 검색/길찾기 영역 */}
                     <div className="p-4 border-b bg-white space-y-3">
 
-                        {/* 검색 입력 */}
-                        <div className="flex gap-2">
-                            <input
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                                onKeyDown={(e) => e.key === "Enter" && searchPlaces()}
-                                placeholder="장소, 주소 검색"
-                                className="flex-1 border rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-400"
-                            />
+                        {/* 탭: 장소검색 / 길찾기 */}
+                        <div className="flex gap-2 border-b border-[#ECEEF2] pb-3">
                             <button
-                                onClick={searchPlaces}
-                                className="bg-blue-500 text-white px-5 rounded-xl text-sm font-semibold"
+                                onClick={() => { setRouteMode(false); clearRoute() }}
+                                className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${!routeMode ? "bg-blue-500 text-white" : "text-gray-500 hover:bg-gray-100"}`}
                             >
-                                검색
+                                🔍 장소 검색
                             </button>
+                            <button
+                                onClick={() => setRouteMode(true)}
+                                className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${routeMode ? "bg-blue-500 text-white" : "text-gray-500 hover:bg-gray-100"}`}
+                            >
+                                🗺️ 길찾기
+                            </button>
+                        </div>
 
-                            {/* GPS 버튼 */}
+                        {/* 장소 검색 모드 */}
+                        {!routeMode && (
                             <div className="flex gap-2">
                                 <input
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
                                     onKeyDown={(e) => e.key === "Enter" && searchPlaces()}
                                     placeholder="장소, 주소 검색"
-                                    className="flex-1 border rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-400"
+                                    className="flex-1 border border-[#ECEEF2] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-400"
                                 />
                                 <button
                                     onClick={searchPlaces}
@@ -254,7 +338,63 @@ export default function SearchPanel() {
                                     검색
                                 </button>
                             </div>
-                        </div>
+                        )}
+
+                        {/* 길찾기 모드 */}
+                        {routeMode && (
+                            <div className="space-y-2">
+                                <div className="flex gap-2">
+                                    <input
+                                        value={routeOrigin}
+                                        onChange={(e) => setRouteOrigin(e.target.value)}
+                                        placeholder="출발지 입력"
+                                        className="flex-1 border border-[#ECEEF2] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-400"
+                                    />
+                                    <button
+                                        onClick={setCurrentLocationAsOrigin}
+                                        title="현재 위치를 출발지로"
+                                        className="w-10 h-10 rounded-xl border border-[#ECEEF2] flex items-center justify-center text-blue-500 hover:bg-blue-50 flex-shrink-0"
+                                    >
+                                        📍
+                                    </button>
+                                </div>
+                                <div className="flex gap-2">
+                                    <input
+                                        value={routeDestination}
+                                        onChange={(e) => setRouteDestination(e.target.value)}
+                                        onKeyDown={(e) => e.key === "Enter" && searchRoute()}
+                                        placeholder="도착지 입력"
+                                        className="flex-1 border border-[#ECEEF2] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-400"
+                                    />
+                                    <button
+                                        onClick={searchRoute}
+                                        disabled={routeLoading}
+                                        className="px-4 h-10 rounded-xl bg-blue-500 text-white text-sm font-semibold hover:bg-blue-600 disabled:opacity-50 flex-shrink-0"
+                                    >
+                                        {routeLoading ? (
+                                            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin block" />
+                                        ) : "검색"}
+                                    </button>
+                                </div>
+
+                                {/* 경로 결과 */}
+                                {routeInfo && (
+                                    <div className="bg-blue-50 rounded-xl px-4 py-3 flex items-center justify-between">
+                                        <div className="text-sm text-blue-700">
+                                            <span className="font-semibold">🚶 {routeInfo.distance}</span>
+                                            <span className="mx-2">·</span>
+                                            <span className="font-semibold">⏱ {routeInfo.duration}</span>
+                                        </div>
+                                        <button
+                                            onClick={clearRoute}
+                                            className="text-xs text-gray-400 hover:text-gray-600"
+                                        >
+                                            초기화
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* 날씨 카드 */}
                         {weather && (
@@ -281,71 +421,70 @@ export default function SearchPanel() {
                                 날씨 정보 불러오는 중...
                             </div>
                         )}
-
                     </div>
 
                     {/* 본문 */}
                     <div className="flex-1 flex overflow-hidden">
 
-                        {/* 검색 결과 목록 */}
-                        <div className="w-[380px] border-r overflow-y-auto bg-white">
-                            {places.length === 0 && (
-                                <div className="p-6 text-center text-gray-400 text-sm">
-                                    <div className="text-3xl mb-2">🔍</div>
-                                    장소를 검색하거나<br />
-                                    카테고리를 선택해보세요
-                                    {userLocation && (
-                                        <div className="mt-2 text-blue-400 text-xs">
-                                            📍 현재 위치 기준으로 검색됩니다
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {places.map((place: any) => (
-                                <div
-                                    key={place.place_id}
-                                    onClick={() => openPlaceDetail(place)}
-                                    className="p-4 border-b hover:bg-gray-50 cursor-pointer"
-                                >
-                                    {place.photos?.[0] && (
-                                        <img
-                                            src={`${process.env.NEXT_PUBLIC_API_URL}/place-photo?photo_reference=${place.photos[0].photo_reference}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY}`}
-                                            alt={place.name}
-                                            className="w-full h-40 object-cover rounded-xl mb-3"
-                                        />
-                                    )}
-                                    <div className="font-semibold text-base">{place.name}</div>
-                                    <div className="flex items-center gap-2 mt-1 text-sm">
-                                        <span className="text-yellow-500">⭐ {place.rating ?? "-"}</span>
-                                        {place.user_ratings_total && (
-                                            <span className="text-gray-400">({place.user_ratings_total})</span>
+                        {/* 검색 결과 목록 (장소 검색 모드일 때만) */}
+                        {!routeMode && (
+                            <div className="w-[380px] border-r overflow-y-auto bg-white">
+                                {places.length === 0 && (
+                                    <div className="p-6 text-center text-gray-400 text-sm">
+                                        <div className="text-3xl mb-2">🔍</div>
+                                        장소를 검색하거나<br />
+                                        카테고리를 선택해보세요
+                                        {userLocation && (
+                                            <div className="mt-2 text-blue-400 text-xs">
+                                                📍 현재 위치 기준으로 검색됩니다
+                                            </div>
                                         )}
                                     </div>
-                                    <div className="text-sm text-gray-500 mt-1">
-                                        {place.formatted_address || place.vicinity}
+                                )}
+
+                                {places.map((place: any) => (
+                                    <div
+                                        key={place.place_id}
+                                        onClick={() => openPlaceDetail(place)}
+                                        className="p-4 border-b hover:bg-gray-50 cursor-pointer"
+                                    >
+                                        {place.photos?.[0] && (
+                                            <img
+                                                src={`${process.env.NEXT_PUBLIC_API_URL}/place-photo?photo_reference=${place.photos[0].photo_reference}`}
+                                                alt={place.name}
+                                                className="w-full h-40 object-cover rounded-xl mb-3"
+                                            />
+                                        )}
+                                        <div className="font-semibold text-base">{place.name}</div>
+                                        <div className="flex items-center gap-2 mt-1 text-sm">
+                                            <span className="text-yellow-500">⭐ {place.rating ?? "-"}</span>
+                                            {place.user_ratings_total && (
+                                                <span className="text-gray-400">({place.user_ratings_total})</span>
+                                            )}
+                                        </div>
+                                        <div className="text-sm text-gray-500 mt-1">
+                                            {place.formatted_address || place.vicinity}
+                                        </div>
                                     </div>
-                                    <button className="mt-3 px-3 py-2 bg-blue-500 text-white rounded-lg text-sm">
-                                        상세정보
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
 
                         {/* 지도 영역 */}
                         <div className="flex-1 relative">
 
-                            {/* 카테고리 버튼 */}
-                            {!selectedPlace && (
-                                <div className="absolute top-16 left-4 z-20 flex gap-2 flex-wrap">
+                            {/* 카테고리 버튼 (장소 검색 모드 + 상세 안 열렸을 때만) */}
+                            {!routeMode && !selectedPlace && (
+                                <div className="absolute top-4 left-4 z-20 flex gap-2 flex-wrap">
                                     {categories.map((category) => (
                                         <button
                                             key={category}
                                             onClick={() => searchByCategory(category)}
-                                            className={`px-4 py-2 rounded-full shadow-md text-sm font-medium border transition ${selectedCategory === category
-                                                ? "bg-blue-500 text-white border-blue-500"
-                                                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
-                                                }`}
+                                            className={`px-4 py-2 rounded-full shadow-md text-sm font-medium border transition ${
+                                                selectedCategory === category
+                                                    ? "bg-blue-500 text-white border-blue-500"
+                                                    : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                                            }`}
                                         >
                                             {category}
                                         </button>
@@ -358,23 +497,28 @@ export default function SearchPanel() {
                                 </div>
                             )}
 
-                            {isLoaded && (
+                            {isLoaded && mapCenter && (
                                 <GoogleMap
                                     onLoad={(mapInstance) => setMap(mapInstance)}
                                     mapContainerStyle={{ width: "100%", height: "100%" }}
                                     center={mapCenter}
-                                    zoom={12}
+                                    zoom={13}
                                 >
-                                    {/* 경로 */}
-                                    {path.length > 0 && (
-                                        <Polyline
-                                            path={path}
-                                            options={{ strokeColor: "#4285F4", strokeWeight: 6 }}
+                                    {/* 길찾기 경로 */}
+                                    {routeDirections && (
+                                        <DirectionsRenderer
+                                            directions={routeDirections}
+                                            options={{
+                                                polylineOptions: {
+                                                    strokeColor: "#3B82F6",
+                                                    strokeWeight: 5,
+                                                }
+                                            }}
                                         />
                                     )}
 
                                     {/* 장소 마커 */}
-                                    {markers.map((place: any) => (
+                                    {!routeDirections && markers.map((place: any) => (
                                         <Marker
                                             key={place.place_id}
                                             position={{
@@ -403,18 +547,19 @@ export default function SearchPanel() {
                                 </GoogleMap>
                             )}
 
-                            {/* 지도 위 GPS 버튼 */}
-                            <div className="absolute bottom-6 right-16 z-20 flex flex-col gap-2">
+                            {/* GPS 버튼 */}
+                            <div className="absolute bottom-5 right-4 z-20">
                                 <button
                                     onClick={getCurrentLocation}
                                     disabled={locating}
                                     title="현재 위치"
-                                    className={`w-10 h-10 rounded-xl shadow-md flex items-center justify-center text-lg transition ${locating
-                                        ? "bg-white text-gray-400"
-                                        : userLocation
+                                    className={`w-10 h-10 rounded-xl shadow-md flex items-center justify-center text-lg transition ${
+                                        locating
+                                            ? "bg-white text-gray-400"
+                                            : userLocation
                                             ? "bg-blue-500 text-white"
                                             : "bg-white text-gray-600 hover:bg-gray-50"
-                                        }`}
+                                    }`}
                                 >
                                     {locating ? (
                                         <span className="w-4 h-4 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin" />
@@ -456,9 +601,9 @@ export default function SearchPanel() {
                                             <div className="mt-2 text-gray-700">
                                                 가격대: {
                                                     selectedPlace.price_level === 1 ? "💰 저렴" :
-                                                        selectedPlace.price_level === 2 ? "💰💰 보통" :
-                                                            selectedPlace.price_level === 3 ? "💰💰💰 비쌈" :
-                                                                selectedPlace.price_level === 4 ? "💰💰💰💰 매우 비쌈" : ""
+                                                    selectedPlace.price_level === 2 ? "💰💰 보통" :
+                                                    selectedPlace.price_level === 3 ? "💰💰💰 비쌈" :
+                                                    selectedPlace.price_level === 4 ? "💰💰💰💰 매우 비쌈" : ""
                                                 }
                                             </div>
                                         )}
@@ -526,65 +671,78 @@ export default function SearchPanel() {
                                             </div>
                                         )}
 
-                                        {/* 일정 추가/수정 버튼 */}
+                                        {/* ── 상황별 버튼 분기 ── */}
                                         <div className="mt-8 flex gap-3">
-                                            <button
-                                                onClick={async () => {
-                                                    if (selectedDay === null) {
-                                                        toast.error("DAY를 먼저 선택해주세요.")
-                                                        return
-                                                    }
-                                                    const newPlace = {
-                                                        trip_id: tripId,
-                                                        day_number: selectedDay,
-                                                        order_no: (schedule[selectedDay]?.length || 0) + 1,
-                                                        place_id: selectedPlace.place_id,
-                                                        name: selectedPlace.name,
-                                                        category: getCategory(selectedPlace.types),
-                                                        photo: selectedPlace.photos?.[0]?.photo_reference,
-                                                        rating: selectedPlace.rating,
-                                                        address: selectedPlace.formatted_address,
-                                                        duration: getDefaultDuration(selectedPlace.types),
-                                                        lat: selectedPlace.geometry.location.lat,
-                                                        lng: selectedPlace.geometry.location.lng
-                                                    }
-                                                    const updatedSchedule = { ...schedule }
-                                                    updatedSchedule[selectedDay] ??= []
 
-                                                    if (editingIndex !== null) {
-                                                        await api.put(
-                                                            `schedule/${updatedSchedule[selectedDay][editingIndex].id}`,
-                                                            newPlace
-                                                        )
-                                                        updatedSchedule[selectedDay][editingIndex] = {
-                                                            ...updatedSchedule[selectedDay][editingIndex],
-                                                            ...newPlace
+                                            {/* 일정 추가 모드일 때만 일정 추가/수정 버튼 표시 */}
+                                            {isScheduleMode && (
+                                                <button
+                                                    onClick={async () => {
+                                                        if (selectedDay === null) {
+                                                            toast.error("DAY를 먼저 선택해주세요.")
+                                                            return
                                                         }
-                                                        setSchedule(updatedSchedule)
-                                                        await refreshTrip()
-                                                        setEditingIndex(null)
-                                                        setSelectedPlace(null)
-                                                        toast.success("일정이 수정되었습니다.")
-                                                    } else {
-                                                        const res = await api.post("schedule", newPlace)
-                                                        setSchedule({
-                                                            ...schedule,
-                                                            [selectedDay]: [
-                                                                ...(schedule[selectedDay] || []),
-                                                                res.data
-                                                            ]
-                                                        })
-                                                        await refreshTrip()
-                                                        setSelectedPlace(null)
-                                                        toast.success(`DAY ${selectedDay}에 추가되었습니다.`)
-                                                    }
+                                                        const newPlace = {
+                                                            trip_id: tripId,
+                                                            day_number: selectedDay,
+                                                            order_no: (schedule[selectedDay]?.length || 0) + 1,
+                                                            place_id: selectedPlace.place_id,
+                                                            name: selectedPlace.name,
+                                                            category: getCategory(selectedPlace.types),
+                                                            photo: selectedPlace.photos?.[0]?.photo_reference,
+                                                            rating: selectedPlace.rating,
+                                                            address: selectedPlace.formatted_address,
+                                                            duration: getDefaultDuration(selectedPlace.types),
+                                                            lat: selectedPlace.geometry.location.lat,
+                                                            lng: selectedPlace.geometry.location.lng
+                                                        }
+                                                        const updatedSchedule = { ...schedule }
+                                                        updatedSchedule[selectedDay] ??= []
+
+                                                        if (editingIndex !== null) {
+                                                            await api.put(
+                                                                `schedule/${updatedSchedule[selectedDay][editingIndex].id}`,
+                                                                newPlace
+                                                            )
+                                                            updatedSchedule[selectedDay][editingIndex] = {
+                                                                ...updatedSchedule[selectedDay][editingIndex],
+                                                                ...newPlace
+                                                            }
+                                                            setSchedule(updatedSchedule)
+                                                            await refreshTrip()
+                                                            setEditingIndex(null)
+                                                            setSelectedPlace(null)
+                                                            toast.success("일정이 수정되었습니다.")
+                                                        } else {
+                                                            const res = await api.post("schedule", newPlace)
+                                                            setSchedule({
+                                                                ...schedule,
+                                                                [selectedDay]: [
+                                                                    ...(schedule[selectedDay] || []),
+                                                                    res.data
+                                                                ]
+                                                            })
+                                                            await refreshTrip()
+                                                            setSelectedPlace(null)
+                                                            toast.success(`DAY ${selectedDay}에 추가되었습니다.`)
+                                                        }
+                                                    }}
+                                                    className="flex-1 bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600"
+                                                >
+                                                    {editingIndex !== null ? "일정 수정" : "일정 추가"}
+                                                </button>
+                                            )}
+
+                                            {/* 길찾기 버튼 — 항상 표시 */}
+                                            <button
+                                                onClick={() => {
+                                                    setRouteDestination(selectedPlace.name)
+                                                    setSelectedPlace(null)
+                                                    setRouteMode(true)
                                                 }}
-                                                className="flex-1 bg-blue-500 text-white py-3 rounded-xl font-semibold hover:bg-blue-600"
+                                                className={`${isScheduleMode ? "flex-1" : "w-full"} border border-[#ECEEF2] py-3 rounded-xl text-gray-600 hover:bg-gray-50 font-semibold`}
                                             >
-                                                {editingIndex !== null ? "일정 수정" : "일정 추가"}
-                                            </button>
-                                            <button className="flex-1 border py-3 rounded-xl text-gray-600 hover:bg-gray-50">
-                                                길찾기
+                                                🗺️ 길찾기
                                             </button>
                                         </div>
                                     </div>
@@ -593,8 +751,7 @@ export default function SearchPanel() {
                         </div>
                     </div>
                 </div>
-            )
-            }
-        </div >
+            )}
+        </div>
     )
 }
