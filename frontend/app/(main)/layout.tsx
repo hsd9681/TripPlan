@@ -7,7 +7,7 @@ import api from "../lib/api"
 import { useRouter } from "next/navigation"
 import { useTrip } from "../context/TripContext"
 import { useSearchPanel } from "../context/SearchPanelContext"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"  // ← useState 추가
 
 export default function MainLayout({
     children,
@@ -19,18 +19,20 @@ export default function MainLayout({
     const pathname = usePathname()
     const { user, setUser, setCurrentTrip } = useTrip()
 
+    const [authChecked, setAuthChecked] = useState(false)  // ← 추가
+
     useEffect(() => {
         const loadData = async () => {
             try {
                 const me = await api.get("/me")
 
-                // unauthorized 응답 체크 추가
                 if (!me.data || me.data.message === "unauthorized") {
                     router.push("/login")
                     return
                 }
 
                 setUser(me.data)
+                setAuthChecked(true)  // ← 인증 완료
             } catch {
                 router.push("/login")
                 return
@@ -44,6 +46,18 @@ export default function MainLayout({
         }
         loadData()
     }, [])
+
+    // 인증 체크 전에는 아무것도 안 보여줌
+    if (!authChecked) {
+        return (
+            <div className="h-screen flex items-center justify-center bg-gray-50">
+                <div className="text-center">
+                    <div className="w-10 h-10 border-4 border-blue-100 border-t-blue-500 rounded-full animate-spin mx-auto mb-3" />
+                    <p className="text-gray-400 text-sm">로딩 중...</p>
+                </div>
+            </div>
+        )
+    }
 
     const menus = [
         { href: "/", icon: "🏠", label: "홈" },
@@ -67,17 +81,17 @@ export default function MainLayout({
                 {/* Menu */}
                 <nav className="flex-1 p-3">
                     <div className="space-y-1">
-
                         {menus.map((menu) => {
                             const isActive = pathname === menu.href
                             return (
                                 <Link
                                     key={menu.href}
                                     href={menu.href}
-                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition font-medium text-sm ${isActive
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition font-medium text-sm ${
+                                        isActive
                                             ? "bg-blue-50 text-blue-600"
                                             : "text-gray-600 hover:bg-gray-100"
-                                        }`}
+                                    }`}
                                 >
                                     <span className="text-lg">{menu.icon}</span>
                                     {menu.label}
@@ -85,18 +99,17 @@ export default function MainLayout({
                             )
                         })}
 
-                        {/* 지도 검색 토글 */}
                         <button
                             onClick={() => setIsOpen(!isOpen)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition font-medium text-sm ${isOpen
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition font-medium text-sm ${
+                                isOpen
                                     ? "bg-blue-50 text-blue-600"
                                     : "text-gray-600 hover:bg-gray-100"
-                                }`}
+                            }`}
                         >
                             <span className="text-lg">🗺️</span>
                             지도 검색
                         </button>
-
                     </div>
                 </nav>
 
@@ -128,9 +141,7 @@ export default function MainLayout({
                 {children}
             </main>
 
-            {/* 전역 지도 패널 */}
             <SearchPanel />
-
         </div>
     )
 }
