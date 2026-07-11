@@ -23,6 +23,13 @@ export default function MainLayout({
         const loadData = async () => {
             try {
                 const me = await api.get("/me")
+
+                // unauthorized 응답 체크 추가
+                if (!me.data || me.data.message === "unauthorized") {
+                    router.push("/login")
+                    return
+                }
+
                 setUser(me.data)
             } catch {
                 router.push("/login")
@@ -67,11 +74,10 @@ export default function MainLayout({
                                 <Link
                                     key={menu.href}
                                     href={menu.href}
-                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition font-medium text-sm ${
-                                        isActive
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition font-medium text-sm ${isActive
                                             ? "bg-blue-50 text-blue-600"
                                             : "text-gray-600 hover:bg-gray-100"
-                                    }`}
+                                        }`}
                                 >
                                     <span className="text-lg">{menu.icon}</span>
                                     {menu.label}
@@ -82,11 +88,10 @@ export default function MainLayout({
                         {/* 지도 검색 토글 */}
                         <button
                             onClick={() => setIsOpen(!isOpen)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition font-medium text-sm ${
-                                isOpen
+                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition font-medium text-sm ${isOpen
                                     ? "bg-blue-50 text-blue-600"
                                     : "text-gray-600 hover:bg-gray-100"
-                            }`}
+                                }`}
                         >
                             <span className="text-lg">🗺️</span>
                             지도 검색
