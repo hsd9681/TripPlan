@@ -106,7 +106,7 @@ def places(query: str):
 
 
 @app.get("/nearby")
-def nearby(lat: float, lng: float, category: str):
+def nearby(lat: float, lng: float, category: str, radius: int = 3000):
     category_map = {
         "맛집": "restaurant",
         "카페": "cafe",
@@ -118,7 +118,7 @@ def nearby(lat: float, lng: float, category: str):
         "https://maps.googleapis.com/maps/api/place/nearbysearch/json",
         params={
             "location": f"{lat},{lng}",
-            "radius": 3000,
+            "radius": radius,
             "type": category_map.get(category, "restaurant"),
             "language": "ko",
             "key": MAPS_API_KEY
