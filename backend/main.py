@@ -58,6 +58,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+
 # ──────────────────────────────────────────
 # 인증 유틸
 # ──────────────────────────────────────────
@@ -79,6 +80,7 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     except JWTError:
         return None
 
+
 # ──────────────────────────────────────────
 # AI (Groq)
 # ──────────────────────────────────────────
@@ -91,6 +93,7 @@ def generate_ai_response(prompt: str) -> str:
         max_tokens=2000
     )
     return response.choices[0].message.content
+
 
 # ──────────────────────────────────────────
 # 구글 Places 프록시
@@ -164,6 +167,7 @@ def route(origin: str, destination: str):
         "end": leg["end_location"]
     }
 
+
 # ──────────────────────────────────────────
 # 회원가입 / 로그인 / 로그아웃
 # ──────────────────────────────────────────
@@ -172,7 +176,7 @@ def route(origin: str, destination: str):
 def signup(user: dict, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == user["email"]).first():
         return {"message": "email exists"}
-    new_user = User(email=user["email"],password=pwd_context.hash(user["password"]),nickname=user["nickname"])
+    new_user = User(email=user["email"], password=pwd_context.hash(user["password"]), nickname=user["nickname"])
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -213,6 +217,7 @@ def me(user: User = Depends(get_current_user)):
         return {"message": "unauthorized"}
     return {"id": user.id, "email": user.email, "nickname": user.nickname}
 
+
 # ──────────────────────────────────────────
 # 유저 정보 수정
 # ──────────────────────────────────────────
@@ -241,6 +246,7 @@ def update_password(data: dict, current_user: User = Depends(get_current_user), 
     current_user.password = pwd_context.hash(data.get("new_password"))
     db.commit()
     return {"message": "success"}
+
 
 # ──────────────────────────────────────────
 # 소셜 로그인 — 구글
@@ -284,9 +290,12 @@ def google_callback(code: str, db: Session = Depends(get_db)):
     if not email:
         return RedirectResponse(f"{FRONTEND_URL}/login?error=google_email_failed")
 
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(
+        User.email == email,
+        User.provider == "google"
+    ).first()
     if not user:
-        user = User(email=email, nickname=name, password="GOOGLE_OAUTH")
+        user = User(email=email, nickname=name, password="GOOGLE_OAUTH", provider="google")
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -295,6 +304,7 @@ def google_callback(code: str, db: Session = Depends(get_db)):
     response = RedirectResponse(f"{FRONTEND_URL}/auth/google/success")
     response.set_cookie(key="access_token", value=jwt_token, httponly=True, samesite="none", secure=True)
     return response
+
 
 # ──────────────────────────────────────────
 # 소셜 로그인 — 카카오
@@ -336,15 +346,19 @@ async def kakao_token(data: dict = Body(...), db: Session = Depends(get_db)):
     nickname = user_info.get("properties", {}).get("nickname", "카카오유저")
     email = user_info.get("kakao_account", {}).get("email") or f"kakao_{kakao_id}@kakao.com"
 
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(
+        User.email == email,
+        User.provider == "kakao"
+    ).first()
     if not user:
-        user = User(email=email, nickname=nickname, password="KAKAO_OAUTH")
+        user = User(email=email, nickname=nickname, password="KAKAO_OAUTH", provider="kakao")
         db.add(user)
         db.commit()
         db.refresh(user)
 
     jwt_token = create_access_token(user.id)
     return {"access_token": jwt_token, "user": {"id": user.id, "email": user.email, "nickname": user.nickname}}
+
 
 # ──────────────────────────────────────────
 # 여행 (Trip)
@@ -426,7 +440,8 @@ def upcoming_trip(current_user: User = Depends(get_current_user), db: Session = 
 
 
 @app.post("/trip/ai-recommend")
-def ai_recommend_trip(data: dict = Body(...), current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def ai_recommend_trip(data: dict = Body(...), current_user: User = Depends(get_current_user),
+                      db: Session = Depends(get_db)):
     if not current_user:
         return {"message": "unauthorized"}
 
@@ -501,7 +516,8 @@ def ai_recommend_trip(data: dict = Body(...), current_user: User = Depends(get_c
         for order, place in enumerate(day_data.get("places", []), start=1):
             search_query = place.get("search_query") or f"{place['name']} {city}"
             try:
-                results = requests.get(places_url, params={"query": search_query, "language": "ko", "key": MAPS_API_KEY}).json().get("results", [])
+                results = requests.get(places_url, params={"query": search_query, "language": "ko",
+                                                           "key": MAPS_API_KEY}).json().get("results", [])
             except Exception:
                 results = []
 
@@ -552,7 +568,8 @@ def get_trip(trip_id: int, current_user: User = Depends(get_current_user), db: S
 
 
 @app.put("/trip/{trip_id}/budget")
-def update_trip_budget(trip_id: int, data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def update_trip_budget(trip_id: int, data: dict, current_user: User = Depends(get_current_user),
+                       db: Session = Depends(get_db)):
     if not current_user:
         return {"message": "unauthorized"}
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
@@ -567,7 +584,8 @@ def update_trip_budget(trip_id: int, data: dict, current_user: User = Depends(ge
 
 
 @app.put("/trip/{trip_id}/title")
-def update_trip_title(trip_id: int, data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def update_trip_title(trip_id: int, data: dict, current_user: User = Depends(get_current_user),
+                      db: Session = Depends(get_db)):
     if not current_user:
         return {"message": "unauthorized"}
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
@@ -597,7 +615,8 @@ def delete_trip(trip_id: int, current_user: User = Depends(get_current_user), db
 
 
 @app.put("/trip/{trip_id}/day-memo")
-def update_day_memo(trip_id: int, data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def update_day_memo(trip_id: int, data: dict, current_user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
     if not current_user:
         return {"message": "unauthorized"}
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
@@ -625,7 +644,8 @@ def update_day_memo(trip_id: int, data: dict, current_user: User = Depends(get_c
 
 
 @app.get("/trip/{trip_id}/day-memo/{day_number}")
-def get_day_memo(trip_id: int, day_number: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_day_memo(trip_id: int, day_number: int, current_user: User = Depends(get_current_user),
+                 db: Session = Depends(get_db)):
     if not current_user:
         return {"message": "unauthorized"}
     schedule = (
@@ -634,6 +654,7 @@ def get_day_memo(trip_id: int, day_number: int, current_user: User = Depends(get
         .order_by(Schedule.order_no).first()
     )
     return {"memo": schedule.memo if schedule else ""}
+
 
 # ──────────────────────────────────────────
 # 일정 (Schedule)
@@ -698,7 +719,8 @@ def update_schedule_order(items: list = Body(...), db: Session = Depends(get_db)
 
 
 @app.put("/schedule/{schedule_id}")
-def update_schedule(schedule_id: int, data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def update_schedule(schedule_id: int, data: dict, current_user: User = Depends(get_current_user),
+                    db: Session = Depends(get_db)):
     schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
     if not schedule:
         return {"message": "schedule not found"}
@@ -726,7 +748,8 @@ def update_schedule(schedule_id: int, data: dict, current_user: User = Depends(g
 
 
 @app.put("/schedule/{schedule_id}/cost")
-def update_schedule_cost(schedule_id: int, data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def update_schedule_cost(schedule_id: int, data: dict, current_user: User = Depends(get_current_user),
+                         db: Session = Depends(get_db)):
     if not current_user:
         return {"message": "unauthorized"}
     schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
@@ -739,7 +762,8 @@ def update_schedule_cost(schedule_id: int, data: dict, current_user: User = Depe
 
 
 @app.put("/schedule/{schedule_id}/memo")
-def update_schedule_memo(schedule_id: int, data: dict, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def update_schedule_memo(schedule_id: int, data: dict, current_user: User = Depends(get_current_user),
+                         db: Session = Depends(get_db)):
     if not current_user:
         return {"message": "unauthorized"}
     schedule = db.query(Schedule).filter(Schedule.id == schedule_id).first()
