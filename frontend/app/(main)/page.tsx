@@ -8,7 +8,7 @@ import { useSearchPanel } from "../context/SearchPanelContext"
 
 export default function HomePage() {
     const { user, currentTrip } = useTrip()
-    const { setIsOpen } = useSearchPanel()
+    const { isOpen, setIsOpen } = useSearchPanel()
     const router = useRouter()
 
     const calculateDday = () => {
@@ -157,7 +157,7 @@ export default function HomePage() {
                         key={menu.label}
                         onClick={() => {
                             if (menu.href === "#") {
-                                setIsOpen(true)
+                                setIsOpen(!isOpen)  // ← 현재 값 반전
                             } else {
                                 router.push(menu.href)
                             }
