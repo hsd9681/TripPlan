@@ -4,9 +4,11 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useTrip } from "../context/TripContext"
 import { Trip } from "../types"
+import { useSearchPanel } from "../context/SearchPanelContext"
 
 export default function HomePage() {
     const { user, currentTrip } = useTrip()
+    const { setIsOpen } = useSearchPanel()
     const router = useRouter()
 
     const calculateDday = () => {
@@ -153,7 +155,13 @@ export default function HomePage() {
                 {quickMenus.map((menu) => (
                     <button
                         key={menu.label}
-                        onClick={() => router.push(menu.href)}
+                        onClick={() => {
+                            if (menu.href === "#") {
+                                setIsOpen(true)
+                            } else {
+                                router.push(menu.href)
+                            }
+                        }}
                         className="group bg-white border border-gray-100 rounded-2xl p-4 text-left hover:shadow-md hover:-translate-y-0.5 transition-all"
                     >
                         <div className={`w-10 h-10 bg-gradient-to-br ${menu.gradient} rounded-xl flex items-center justify-center mb-3 shadow-sm group-hover:scale-110 transition-transform`}>

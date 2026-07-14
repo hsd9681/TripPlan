@@ -10,6 +10,7 @@ import {
     DirectionsRenderer,
     useJsApiLoader
 } from "@react-google-maps/api"
+import { GOOGLE_MAPS_LIBRARIES } from "../lib/googleMaps"
 import { useSearchPanel } from "../context/SearchPanelContext"
 import { useTrip } from "../context/TripContext"
 import { toast } from "react-hot-toast"
@@ -82,7 +83,7 @@ export default function SearchPanel() {
 
     const { isLoaded } = useJsApiLoader({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY!,
-        libraries: LIBRARIES
+        libraries: GOOGLE_MAPS_LIBRARIES,
     })
 
     // ── 패널 열릴 때 초기 위치 ──

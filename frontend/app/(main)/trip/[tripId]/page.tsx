@@ -14,6 +14,7 @@ import {
     InfoWindow,
 } from "@react-google-maps/api"
 import { toast } from "react-hot-toast"
+import { GOOGLE_MAPS_LIBRARIES } from "@/app/lib/googleMaps"
 
 export default function TripDetailPage() {
     const params = useParams()
@@ -64,6 +65,7 @@ export default function TripDetailPage() {
 
     const { isLoaded } = useJsApiLoader({
         googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY!,
+        libraries: GOOGLE_MAPS_LIBRARIES,
     })
 
     const {
