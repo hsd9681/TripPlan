@@ -30,8 +30,6 @@ function KakaoCallbackContent() {
                     router.push("/login")
                     return
                 }
-
-                document.cookie = `access_token=${res.data.access_token}; path=/; SameSite=Lax`
                 setUser(res.data.user)
 
                 try {
@@ -42,7 +40,7 @@ function KakaoCallbackContent() {
                 }
 
                 toast.success("카카오 로그인 성공!")
-                router.push("/")
+                window.location.href = "/"
             } catch {
                 toast.error("로그인에 실패했습니다.")
                 router.push("/login")

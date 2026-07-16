@@ -11,6 +11,7 @@ import os
 import requests
 import httpx
 import json as json_module
+from fastapi import Response
 
 from database import get_db, Base, engine
 from models.trip import Trip
@@ -321,7 +322,7 @@ def kakao_login():
 
 
 @app.post("/auth/kakao/token")
-async def kakao_token(data: dict = Body(...), db: Session = Depends(get_db)):
+async def kakao_token(data: dict = Body(...), db: Session = Depends(get_db), response: Response = None):
     token_res = httpx.post(
         "https://kauth.kakao.com/oauth/token",
         data={
@@ -357,7 +358,22 @@ async def kakao_token(data: dict = Body(...), db: Session = Depends(get_db)):
         db.refresh(user)
 
     jwt_token = create_access_token(user.id)
-    return {"access_token": jwt_token, "user": {"id": user.id, "email": user.email, "nickname": user.nickname}}
+
+    response.set_cookie(
+        key="access_token",
+        value=jwt_token,
+        httponly=True,
+        samesite="none",
+        secure=True
+    )
+
+    return {
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "nickname": user.nickname,
+        }
+    }
 
 
 # ──────────────────────────────────────────
