@@ -85,7 +85,7 @@ export default function AiRecommendPage() {
             } catch { }
 
             setTimeout(() => {
-                router.push("/")  // result 대신 홈으로 이동
+                router.push(`/trip/${res.data.trip_id}`)
             }, 1500)
 
         } catch {
@@ -215,7 +215,7 @@ export default function AiRecommendPage() {
                         <h2 className="text-xl font-bold mb-2">일정이 완성됐어요!</h2>
                         <p className="text-gray-500 text-sm">{resultTitle}</p>
                         <p className="text-blue-500 text-sm mt-6 animate-pulse">
-                            여행 목록으로 이동 중...
+                            여행 상세 페이지로 이동 중...
                         </p>
                     </div>
                 )}
