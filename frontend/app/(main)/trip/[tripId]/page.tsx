@@ -144,6 +144,45 @@ export default function TripDetailPage() {
     }, [tripId])
 
     useEffect(() => {
+        if (!tripInfo) return
+        const kakao = (window as any).Kakao
+        if (kakao && !kakao.isInitialized()) {
+            kakao.init(process.env.NEXT_PUBLIC_KAKAO_APP_KEY)
+        }
+    }, [tripInfo])
+
+
+    const shareKakao = () => {
+        const kakao = (window as any).Kakao
+        if (!kakao || !kakao.isInitialized()) {
+            toast.error("카카오 SDK가 로드되지 않았습니다.")
+            return
+        }
+
+        kakao.Share.sendDefault({
+            objectType: "feed",
+            content: {
+                title: tripInfo?.title || "여행 일정",
+                description: `${tripInfo?.start_date} ~ ${tripInfo?.end_date} · ${tripInfo?.people}명`,
+                imageUrl: "https://trip-plan-indol.vercel.app/og-image.png", // 대표 이미지
+                link: {
+                    mobileWebUrl: `https://trip-plan-indol.vercel.app/trip/${tripId}`,
+                    webUrl: `https://trip-plan-indol.vercel.app/trip/${tripId}`,
+                },
+            },
+            buttons: [
+                {
+                    title: "여행 일정 보기",
+                    link: {
+                        mobileWebUrl: `https://trip-plan-indol.vercel.app/trip/${tripId}`,
+                        webUrl: `https://trip-plan-indol.vercel.app/trip/${tripId}`,
+                    },
+                },
+            ],
+        })
+    }
+
+    useEffect(() => {
         if (!tripId || tripId === 0) return
         if (rightTab !== "memo") return
         if (memos[selectedDay] !== undefined) return
@@ -433,15 +472,13 @@ export default function TripDetailPage() {
 
                     <div className="flex items-center gap-2">
                         <button
-                            onClick={() => {
-                                const url = `${window.location.origin}/trip/${tripId}`
-                                navigator.clipboard.writeText(url)
-                                    .then(() => toast.success("링크가 클립보드에 복사되었습니다."))
-                                    .catch(() => toast.error("복사에 실패했습니다."))
-                            }}
-                            className="px-4 py-2 rounded-xl border border-[#ECEEF2] font-medium text-gray-700 hover:bg-gray-50"
+                            onClick={shareKakao}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#FEE500] text-[#3C1E1E] font-semibold hover:bg-[#F6DC00] transition"
                         >
-                            공유
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="#3C1E1E">
+                                <path d="M12 3C6.48 3 2 6.48 2 10.8c0 2.7 1.6 5.1 4 6.6l-1 3.6 4.2-2.8c.9.2 1.8.2 2.8.2 5.52 0 10-3.48 10-7.8S17.52 3 12 3z" />
+                            </svg>
+                            카카오 공유
                         </button>
                         {/* 삭제 버튼 — 실제 동작 연결 */}
                         <button
