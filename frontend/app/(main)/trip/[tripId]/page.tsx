@@ -164,7 +164,7 @@ export default function TripDetailPage() {
             content: {
                 title: tripInfo?.title || "여행 일정",
                 description: `${tripInfo?.start_date} ~ ${tripInfo?.end_date} · ${tripInfo?.people}명`,
-                imageUrl: "https://trip-plan-indol.vercel.app/og-image.png", // 대표 이미지
+                imageUrl: "https://images.unsplash.com/photo-1488085061387-422e29b40080?q=80&w=1200",
                 link: {
                     mobileWebUrl: `https://trip-plan-indol.vercel.app/trip/${tripId}`,
                     webUrl: `https://trip-plan-indol.vercel.app/trip/${tripId}`,
