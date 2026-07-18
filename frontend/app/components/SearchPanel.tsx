@@ -528,7 +528,7 @@ export default function SearchPanel() {
 
                             {/* 카테고리 버튼 */}
                             {!routeMode && !selectedPlace && (
-                                <div className="absolute top-3 left-4 z-20 flex gap-2 flex-wrap">
+                                <div className="absolute top-12 left-4 z-20 flex gap-2 flex-wrap">
                                     {categories.map((category) => (
                                         <button
                                             key={category}
