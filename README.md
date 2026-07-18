@@ -52,6 +52,11 @@ TripPlan AI는 사용자가 국가, 도시, 날짜, 인원을 입력하면 AI가
 - 번호 마커로 방문 순서 표시
 - GPS 기반 현재 위치 지도 이동
 - 지도 내 카테고리별 주변 장소 검색 (맛집/카페/관광지/쇼핑/숙소)
+- 장소 검색 자동완성
+- 길찾기 (대중교통/도보/자동차)
+- 출발/도착 버튼으로 바로 길찾기 연동
+- 지도 드래그/줌 기반 카테고리 자동 재검색
+- 장소 사진 슬라이더
 
 ### 💰 예산 관리
 - 총 여행 예산 설정 및 DB 저장
@@ -73,6 +78,10 @@ TripPlan AI는 사용자가 국가, 도시, 날짜, 인원을 입력하면 AI가
 - 카카오 OAuth 소셜 로그인
 - JWT 기반 인증 (HttpOnly 쿠키)
 - 로그인 상태 유지
+- provider 기반 소셜 계정 분리 (같은 이메일도 구글/카카오 별도 계정)
+
+### 📤 공유 (새 섹션 추가)
+- 카카오톡 공유 기능
 
 ---
 
@@ -222,6 +231,118 @@ def generate_ai_response(prompt: str) -> str:
 **해결** Google Maps API 키 환경변수명을 `MAPS_API_KEY`로 변경하여 충돌 방지
 
 ---
+### 7. useJsApiLoader 중복 호출로 인한 Google Maps 충돌
+
+**문제** 배포 후 지도가 로드되지 않고 콘솔에 아래 에러 발생
+Uncaught Error: Loader must not be called again with different options.
+libraries: ["maps"] !== libraries: ["places"]
+
+**원인** `tripId/page.tsx`와 `SearchPanel.tsx` 두 컴포넌트에서 각각 `useJsApiLoader`를 호출하는데 `libraries` 옵션이 달라서 충돌 발생. Google Maps JS API는 한 페이지에서 동일한 옵션으로만 로드 가능
+
+**해결** 공통 라이브러리 설정 파일 생성 후 두 컴포넌트가 동일한 배열 참조를 사용하도록 통일
+
+```ts
+// lib/googleMaps.ts
+export const GOOGLE_MAPS_LIBRARIES: ("places" | "maps")[] = ["places"]
+```
+
+```tsx
+// 두 컴포넌트 모두 동일하게
+import { GOOGLE_MAPS_LIBRARIES } from "../lib/googleMaps"
+
+const { isLoaded } = useJsApiLoader({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAP_KEY!,
+    libraries: GOOGLE_MAPS_LIBRARIES,  // 동일한 배열 참조
+})
+```
+
+---
+
+### 8. 카카오 소셜 로그인 쿠키 도메인 충돌
+
+**문제** 카카오 로그인 성공 후 홈으로 이동하면 바로 로그인 페이지로 튕기는 현상 발생. 구글 로그인 후 로그아웃하고 카카오 로그인을 하면 정상 동작하는 이상한 패턴
+
+**원인** 카카오는 프론트에서 `document.cookie`로 토큰을 저장하는 방식이라 쿠키가 2개 생성됨
+- `tripplan-production-265c.up.railway.app` 도메인 — 백엔드가 설정한 쿠키
+- `trip-plan-indol.vercel.app` 도메인 — 프론트가 `document.cookie`로 설정한 쿠키
+
+두 쿠키가 공존하면서 백엔드가 어떤 쿠키를 읽어야 할지 혼동 발생. 또한 구글 로그인이 먼저 되어 있으면 기존 쿠키가 남아있어 카카오 로그인 후에도 구글 토큰을 읽는 문제 발생
+
+**해결** 카카오도 구글과 동일하게 백엔드에서 쿠키를 설정하도록 변경. `document.cookie` 방식 완전 제거
+
+```python
+# 백엔드 — 카카오 토큰 API에서 직접 쿠키 설정
+@app.post("/auth/kakao/token")
+async def kakao_token(data: dict = Body(...), db: Session = Depends(get_db), response: Response = None):
+    ...
+    response.set_cookie(
+        key="access_token",
+        value=jwt_token,
+        httponly=True,
+        samesite="none",
+        secure=True
+    )
+    return {"user": {"id": user.id, "email": user.email, "nickname": user.nickname}}
+```
+
+```tsx
+// 프론트 — document.cookie 제거, 백엔드 쿠키에 의존
+const res = await api.post("/auth/kakao/token", { code })
+// document.cookie = ... ← 제거
+setUser(res.data.user)
+window.location.href = "/"  // router.push 대신 완전 새로고침으로 쿠키 반영
+```
+
+---
+
+### 9. passlib + bcrypt Python 3.13 버전 호환 문제
+
+**문제** Railway 배포 후 회원가입/로그인 시 500 Internal Server Error 발생
+(trapped) error reading bcrypt version
+AttributeError: module 'bcrypt' has no attribute 'about'
+
+**원인** Railway가 Python 3.13을 사용하는데, `passlib` 라이브러리가 `bcrypt` 버전을 읽는 방식이 최신 `bcrypt` 패키지와 호환되지 않음. `bcrypt` 4.1.x 이상에서 `__about__` 속성이 제거되어 `passlib`이 버전 확인에 실패
+
+**해결** `requirements.txt`에서 호환되는 버전을 명시적으로 고정
+기존
+passlib[bcrypt]
+변경 후 — 버전 고정
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
+---
+
+### 10. 구글/카카오 동일 이메일 계정 충돌
+
+**문제** 구글과 카카오에 동일한 이메일이 연동된 경우 두 소셜 로그인이 같은 계정으로 처리되어 여행 일정이 공유되는 문제 발생
+
+**원인** 소셜 로그인 유저 조회 시 이메일만으로 식별하여 provider가 달라도 같은 계정으로 처리됨
+
+```python
+# 기존 — 이메일만으로 조회 (문제)
+user = db.query(User).filter(User.email == email).first()
+```
+
+**해결** `User` 모델에 `provider` 컬럼 추가 후 이메일 + provider 조합으로 계정 식별
+
+```python
+# users 테이블에 provider 컬럼 추가
+ALTER TABLE users ADD COLUMN IF NOT EXISTS provider VARCHAR DEFAULT 'local';
+```
+
+```python
+# 변경 후 — 이메일 + provider 조합으로 조회
+user = db.query(User).filter(
+    User.email == email,
+    User.provider == "google"  # 또는 "kakao", "local"
+).first()
+
+if not user:
+    user = User(email=email, nickname=name, password="GOOGLE_OAUTH", provider="google")
+```
+
+이제 같은 이메일이라도 `provider`가 다르면 완전히 별개의 계정으로 처리됨
+
 
 ## 🚀 로컬 실행 방법
 
@@ -260,6 +381,7 @@ BACKEND_URL=http://localhost:8000
 ```
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_GOOGLE_MAP_KEY=your-google-maps-key
+NEXT_PUBLIC_KAKAO_APP_KEY=your-kakao-js-key
 ```
 
 ---
