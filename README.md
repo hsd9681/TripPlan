@@ -1,4 +1,4 @@
-<img width="1077" height="942" alt="map" src="https://github.com/user-attachments/assets/e313e3a6-485f-4b4b-a36e-a511a953fc09" /># ✈️ TripPlan AI
+# ✈️ TripPlan AI
 
 > AI가 여행 일정을 자동으로 만들어주는 스마트 여행 계획 서비스
 
@@ -389,18 +389,23 @@ NEXT_PUBLIC_KAKAO_APP_KEY=your-kakao-js-key
 ## 📸 스크린샷
 
 ### 홈 화면
-<img width="1747" height="943" alt="home" src="https://github.com/user-attachments/assets/45356efa-6276-4ab5-97bb-7fe18b199ccc" /><img width="552" height="731" alt="ai1" src="https://github.com/user-attachments/assets/2718893a-f636-41e2-8c5e-102d49ad6841" />
+<img width="1747" height="943" alt="home" src="https://github.com/user-attachments/assets/45356efa-6276-4ab5-97bb-7fe18b199ccc" />
 
 ### AI 추천 코스
 <img width="552" height="731" alt="ai1" src="https://github.com/user-attachments/assets/e186414e-a181-421a-bb71-05fa00f15fd7" />
+
 <img width="628" height="507" alt="ai2" src="https://github.com/user-attachments/assets/687c0656-e447-4e7b-b9fa-3a03262fd8ad" />
 
 ### 여행 상세, 예산 탭
 <img width="1344" height="927" alt="detail" src="https://github.com/user-attachments/assets/8f3a426c-be52-485a-9682-314ca13279d3" />
+
 <img width="1111" height="927" alt="detail2" src="https://github.com/user-attachments/assets/e71720eb-7b81-46e5-ab30-9f190e457f3f" />
 
 ### 지도 검색 패널
-<img width="1077" height="942" alt="map" src="https://github.com/user-attachments/assets/8467f5d6-71c9-4e90-92a8-d6d61ef5c36f" />
+
+<img width="1077" height="942" alt="map" src="https://github.com/user-attachments/assets/2e24c601-4c5b-4023-b904-2dd72d3ffa8b" />
+
+
 ---
 
 ## 👨‍💻 개발자
